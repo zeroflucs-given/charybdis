@@ -15,7 +15,7 @@ type PageHandlerFn[T any] func(ctx context.Context, records []*T, pageState []by
 type QueryBuilderFn func(ctx context.Context) *gocqlx.Queryx
 
 // pageQueryInternal performs paging of a query
-func (t *tableManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder QueryBuilderFn, fn PageHandlerFn[T], opts ...QueryOption) error {
+func (t *baseManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder QueryBuilderFn, fn PageHandlerFn[T], opts ...QueryOption) error {
 	var pageState []byte
 
 	for {
@@ -60,7 +60,7 @@ func (t *tableManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilde
 }
 
 // fetchOnePage fetches a single page of a paged query
-func (t *tableManagerImpl[T]) fetchOnePage(ctx context.Context, iter *gocqlx.Iterx) ([]*T, []byte, error) {
+func (t *baseManagerImpl[T]) fetchOnePage(ctx context.Context, iter *gocqlx.Iterx) ([]*T, []byte, error) {
 	if ctx.Err() != nil {
 		return nil, nil, ctx.Err()
 	}

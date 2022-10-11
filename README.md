@@ -18,8 +18,16 @@ over head the spray would fall on the tops of both the cliffs."* -Homer
 The `charybdis` package provides a range of features to simplify and enhance the developer experience when working with Scylla
 in Go. It provides an opinionated, generics-enabled API that automatically performs table structure management and 
 provides supporting functions for simple runtime access to data. If you want to just write structs and forget about managing
-the keyspaces by hand, and use features like expiry, lightweight transactions together - `charybdis` might be what you're looking
-for.
+the keyspaces by hand, and use features like expiry, lightweight transactions together - `charybdis` might be what you're looking for.
+
+Please note: **This package API should be considered unstable at this time. Once we stablize the API's, we'll mark it as v1**.
+
+## Key Features
+ - Simple queries by partition key, full key, indexes over tables with typed return objects.
+ - Automatic management of database structure for simple (add column) scenarios.
+ - Support for advanced features (conditional updates, TTL's)
+ - Can configure using objects or by reflecting over structures.
+ - Support for querying from materialized views (as well as auto-creation)
 
 ## About ZeroFlucs 
 [ZeroFlucs](https://zeroflucs.io) is a B2B provider of pricing technology for Sportsbooks/wagering service providers globally. We
@@ -199,3 +207,6 @@ existing data has no material consequence and no secutity implications.
 The `tables.WithTTL(duration)` option sets the TTL for all cells written in this operation. This option can
 be specified for inserts, updates or upserts.
 
+### Views
+The package supports views, with `ViewManager[T]` operating in a similar fashion to `TableManager[T]`. The
+file `examples/views/main.go` shows using views with the framework.

@@ -94,12 +94,6 @@ type ViewManager[T any] interface {
 
 	// SelectByIndexedColumn gets all records matching an indexed column
 	SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue interface{}, opts ...QueryOption) error
-
-	// Update an object. Will error if the object does not exist.
-	Update(ctx context.Context, instance *T, opts ...UpdateOption) error
-
-	// Upsert overwrites or inserts an object.
-	Upsert(ctx context.Context, instance *T, opts ...UpdateOption) error
 }
 
 // InsertOption is an interface that describes options that can mutate an insert

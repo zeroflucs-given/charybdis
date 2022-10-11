@@ -53,33 +53,39 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 
 	table := params.TableSpec.ToCQLX()
 
-	return &tableManagerImpl[T]{
-		// Base objects
-		Logger: params.Logger.With(
-			zap.String("keyspace", params.Keyspace),
-			zap.String("view", params.TableSpec.Name)),
-		Tracer: otel.Tracer(TracingModuleName),
+	return &viewManager[T]{
+		baseManagerImpl: baseManagerImpl[T]{
+			// Base objects
+			Logger: params.Logger.With(
+				zap.String("keyspace", params.Keyspace),
+				zap.String("view", params.TableSpec.Name)),
+			Tracer: otel.Tracer(TracingModuleName),
 
-		// Metadata
-		Name:          params.ViewSpec.Name,
-		Session:       wrappedSession,
-		Table:         table,
-		TableMetadata: table.Metadata(),
+			// Metadata
+			Name:          params.ViewSpec.Name,
+			Session:       wrappedSession,
+			Table:         table,
+			TableMetadata: table.Metadata(),
 
-		// Helper data
-		readConsistency:    params.ReadConsistency,
-		qualifiedTableName: params.Keyspace + "." + params.ViewSpec.Name,
-		allColumnNames:     table.Metadata().Columns,
-		partitionKeyPredicates: generics.Map(params.ViewSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
-			return qb.Eq(c.Column.Name)
-		}),
-		allKeyPredicates: generics.Concatenate(
-			generics.Map(params.ViewSpec.Partitioning, func(i int, p *metadata.PartitioningColumn) qb.Cmp {
-				return qb.Eq(p.Column.Name)
-			}),
-			generics.Map(params.ViewSpec.Clustering, func(i int, c *metadata.ClusteringColumn) qb.Cmp {
+			// Helper data
+			readConsistency:    params.ReadConsistency,
+			qualifiedTableName: params.Keyspace + "." + params.ViewSpec.Name,
+			allColumnNames:     table.Metadata().Columns,
+			partitionKeyPredicates: generics.Map(params.ViewSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
 				return qb.Eq(c.Column.Name)
 			}),
-		),
+			allKeyPredicates: generics.Concatenate(
+				generics.Map(params.ViewSpec.Partitioning, func(i int, p *metadata.PartitioningColumn) qb.Cmp {
+					return qb.Eq(p.Column.Name)
+				}),
+				generics.Map(params.ViewSpec.Clustering, func(i int, c *metadata.ClusteringColumn) qb.Cmp {
+					return qb.Eq(c.Column.Name)
+				}),
+			),
+		},
 	}, nil
+}
+
+type viewManager[T any] struct {
+	baseManagerImpl[T]
 }

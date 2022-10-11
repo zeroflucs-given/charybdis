@@ -7,12 +7,9 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/scylladb/gocqlx/v2/qb"
-	"github.com/scylladb/gocqlx/v2/table"
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/generics"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -51,56 +48,47 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 	table := params.TableSpec.ToCQLX()
 
 	return &tableManagerImpl[T]{
-		// Base objects
-		Logger: params.Logger.With(
-			zap.String("keyspace", params.Keyspace),
-			zap.String("table", params.TableSpec.Name)),
-		Tracer: otel.Tracer(TracingModuleName),
+		baseManagerImpl: baseManagerImpl[T]{
+			// Base objects
+			Logger: params.Logger.With(
+				zap.String("keyspace", params.Keyspace),
+				zap.String("table", params.TableSpec.Name)),
+			Tracer: otel.Tracer(TracingModuleName),
 
-		// Metadata
-		Name:          params.TableSpec.Name,
-		Session:       wrappedSession,
-		Table:         table,
-		TableMetadata: table.Metadata(),
+			// Metadata
+			Name:          params.TableSpec.Name,
+			Session:       wrappedSession,
+			Table:         table,
+			TableMetadata: table.Metadata(),
 
-		// Helper data
-		readConsistency:    params.ReadConsistency,
-		writeConsistency:   params.WriteConsistency,
-		qualifiedTableName: params.Keyspace + "." + params.TableSpec.Name,
-		allColumnNames:     table.Metadata().Columns,
-		nonKeyColumns: generics.Map(generics.Filter(params.TableSpec.Columns, func(i int, c *metadata.ColumnSpecification) bool {
-			return !(c.IsPartitioningKey || c.IsClusteringKey)
-		}), func(i int, c *metadata.ColumnSpecification) string {
-			return c.Name
-		}),
-		partitionKeyPredicates: generics.Map(params.TableSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
-			return qb.Eq(c.Column.Name)
-		}),
-		allKeyPredicates: generics.Map(generics.Filter(params.TableSpec.Columns, func(i int, c *metadata.ColumnSpecification) bool {
-			return c.IsPartitioningKey || c.IsClusteringKey
-		}), func(i int, c *metadata.ColumnSpecification) qb.Cmp {
-			return qb.Eq(c.Name)
-		}),
+			// Helper data
+			readConsistency:    params.ReadConsistency,
+			qualifiedTableName: params.Keyspace + "." + params.TableSpec.Name,
+			allColumnNames:     table.Metadata().Columns,
+			nonKeyColumns: generics.Map(generics.Filter(params.TableSpec.Columns, func(i int, c *metadata.ColumnSpecification) bool {
+				return !(c.IsPartitioningKey || c.IsClusteringKey)
+			}), func(i int, c *metadata.ColumnSpecification) string {
+				return c.Name
+			}),
+			partitionKeyPredicates: generics.Map(params.TableSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
+				return qb.Eq(c.Column.Name)
+			}),
+			allKeyPredicates: generics.Map(generics.Filter(params.TableSpec.Columns, func(i int, c *metadata.ColumnSpecification) bool {
+				return c.IsPartitioningKey || c.IsClusteringKey
+			}), func(i int, c *metadata.ColumnSpecification) qb.Cmp {
+				return qb.Eq(c.Name)
+			}),
+		},
+
+		writeConsistency: params.WriteConsistency,
 	}, nil
 }
 
 // tableManagerImpl is our underyling table manager implementation type. We make it private here
 // to prevent embedding directly.
 type tableManagerImpl[T any] struct {
-	Name            string               // Name of opbject
-	Session         gocqlx.Session       // Session
-	Logger          *zap.Logger          // Logger
-	Tracer          trace.Tracer         // OpenTelemetry tracer
-	TraceAttributes []attribute.KeyValue // Common trace attributes
-	Table           *table.Table         // Table helper
-	TableMetadata   table.Metadata       // Table metadata
+	baseManagerImpl[T]
 
 	// Helper data
-	readConsistency        gocql.Consistency // Read consistency
-	writeConsistency       gocql.Consistency // Write consistency
-	qualifiedTableName     string            // Qualified table-name
-	allColumnNames         []string          // Set of all column names
-	nonKeyColumns          []string          // Non-key column names
-	partitionKeyPredicates []qb.Cmp          // Partition key predicates
-	allKeyPredicates       []qb.Cmp          // All key predicates, including partition key, in order
+	writeConsistency gocql.Consistency // Write consistency
 }
