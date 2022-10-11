@@ -1,5 +1,10 @@
 # charybdis
 
+[![GoDoc](https://godoc.org/github.com/zeroflucs-given/charybdis?status.svg)](https://godoc.org/github.com/zeroflucs-given/charybdis)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+![](docs/github-banner-small.png)
+
 *"For on one side lay Scylla and on the other divine Charybdis terribly sucked down the salt water of the sea. Verily 
 whenever she belched it forth, like a cauldron on a great fire she would seethe and bubble in utter turmoil, and high 
 over head the spray would fall on the tops of both the cliffs."* -Homer
@@ -9,12 +14,15 @@ over head the spray would fall on the tops of both the cliffs."* -Homer
 ## Overview 
 The `charybdis` package provides a range of features to simplify and enhance the developer experience when working with Scylla
 in Go. It provides an opinionated, generics-enabled API that automatically performs table structure management and 
-provides supporting functions for simple runtime access to data.
+provides supporting functions for simple runtime access to data. If you want to just write structs and forget about managing
+the keyspaces by hand, and use features like expiry, lightweight transactions together - `charybdis` might be what you're looking
+for.
 
 ## Why Does this Exist?
 At ZeroFlucs we use ScyllaDB as the backbone of our Go based microservices platform. However, it was something of a 
-love-hate relationship early on. We started with `gocql` and `gocqlx` packages (ScyllaDB forks), the problems we 
-encountered were:
+love-hate relationship early on. We started with `gocql` and `gocqlx` packages (ScyllaDB forks), but the problems we 
+encountered were a mix of general tooling availability, as well as trying to get features from the packages to work
+cohesively. Our big pains were:
 
  - Lack of mature tooling to handle schema evolution, for basic additive scenarios (new tables, extra columns)
  - Large amounts of boilerplate for querying slices of objects, or common SELECT, INSERT, UPDATE scenarios.
@@ -38,12 +46,28 @@ There are the following sub-packages of `github.com/zeroflucs-given/charybdis`:
 | `metadata`  | Metadata objects and model structure detail. |
 | `tables`    | A table-management helper for simplified working with tables in other programs. |
 
+### Prerequisites
+Our currently supported verisons are:
+
+- ScyllaDB 4.5.x onward
+- Golang 1.18 onward (as we use generics)
+
 ### Installing Package
 To install:
 
 ```
 go get -u github.com/zeroflucs-given/charybdis
 ```
+
+### Concepts
+The definitions of your ScyllaDB tables are represented in the `metadata` objects. You can either create these
+through reflecting over a type (i.e. Struct to definition generation) or by hand-specifying a `TableSpecification`.
+
+Once you've got a definition, you can use the `tables` package to create a `TableManager[T]` that will provide the
+various helper methods for most commonly used operations.
+
+If you want to have automatic schema management, the `generator` package contains code that will generate DDL
+statements, as well as a `tables` integration that lets you automatically initialize the keyspace and table definitins.
 
 ---
 
