@@ -10,7 +10,7 @@ import (
 // Insert inserts a single object. Unlike upsert it enforces the value does not exist. You can achieve
 // the same effect with an Upsert if you use the WithNotExist option.
 func (t *tableManagerImpl[T]) Insert(ctx context.Context, instance *T, opts ...InsertOption) error {
-	return doWithTracing(ctx, t.Tracer, t.Spec.Name+"/Insert", t.TraceAttributes, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/Insert", t.TraceAttributes, func(ctx context.Context) error {
 		return t.insertInternal(ctx, instance, opts...)
 	})
 }
@@ -22,7 +22,7 @@ func (t *tableManagerImpl[T]) InsertBulk(ctx context.Context, instances []*T, co
 		concurrency = DefaultBulkConcurrency
 	}
 
-	return doWithTracing(ctx, t.Tracer, t.Spec.Name+"/InsertBulk", t.TraceAttributes, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/InsertBulk", t.TraceAttributes, func(ctx context.Context) error {
 		grp, grpCtx := errgroup.WithContext(ctx)
 		grp.SetLimit(concurrency)
 

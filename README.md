@@ -134,12 +134,12 @@ You can alternatively omit the DDL management helpers, and specify a pre-built `
 
 	// Example Part 1 - Creating a table manager with automatic DDL management
 	manager, err := tables.NewTableManager[Record](ctx,
-		tables.WithCluster(cluster),                               // Used to create connections
-		tables.WithLogger(log),                                    // Use a custom logger
-		tables.WithKeyspace("examples"),                           // The keyspace the table belongs to
-		mapping.WithAutomaticSpecification[Record]("user_visits"), // Extract metadata from [Record] type
-		generator.WithSimpleKeyspaceManagement(log, cluster, 1),   // Simple keyspace with RF1 (create if needed)
-		generator.WithAutomaticTableManagement(log, cluster),      // Create the table if needed
+		tables.WithCluster(cluster),                               		// Used to create connections
+		tables.WithLogger(log),                                    		// Use a custom logger
+		tables.WithKeyspace("examples"),                           		// The keyspace the table belongs to
+		mapping.WithAutomaticTableSpecification[Record]("user_visits"), // Extract metadata from [Record] type
+		generator.WithSimpleKeyspaceManagement(log, cluster, 1),   		// Simple keyspace with RF1 (create if needed)
+		generator.WithAutomaticTableManagement(log, cluster),      		// Create the table if needed
 	)
 	if err != nil {
 		panic(err)

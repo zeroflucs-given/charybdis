@@ -8,7 +8,7 @@ import (
 
 // Update updates an object. It will error if the object does not exist.
 func (t *tableManagerImpl[T]) Update(ctx context.Context, instance *T, opts ...UpdateOption) error {
-	return doWithTracing(ctx, t.Tracer, t.Spec.Name+"/Update", t.TraceAttributes, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/Update", t.TraceAttributes, func(ctx context.Context) error {
 		return t.updateInternal(ctx, instance, opts...)
 	})
 }

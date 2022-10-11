@@ -14,6 +14,7 @@ type tableManagerParameters struct {
 	SessionFactory   SessionFactory
 	TracerProvider   trace.TracerProvider
 	TableSpec        *metadata.TableSpecification
+	ViewSpec         *metadata.ViewSpecification
 	ReadConsistency  gocql.Consistency
 	WriteConsistency gocql.Consistency
 }

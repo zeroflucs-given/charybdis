@@ -5,6 +5,7 @@ import (
 
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/scylladb/gocqlx/v2/qb"
+	"github.com/zeroflucs-given/charybdis/metadata"
 )
 
 // TableManager is an object that provides an abstraction over a table in ScyllaDB
@@ -62,6 +63,45 @@ type TableManager[T any] interface {
 	Upsert(ctx context.Context, instance *T, opts ...UpdateOption) error
 }
 
+// ViewManager is an object that provides an abstraction over a view in ScyllaDB
+type ViewManager[T any] interface {
+	// CountByPartitionKey gets the number of records in the partition.
+	CountByPartitionKey(ctx context.Context, partitionKeys ...interface{}) (int64, error)
+
+	// CountByCustomQuery gets the number of records in a custom query.
+	CountByCustomQuery(ctx context.Context, queryBuilder QueryBuilderFn) (int64, error)
+
+	// GetByPartitionKey gets the first record from a partition. If there are multiple records, the
+	// behaviour is to return the first record by clustering order. Equivalent to GetByPrimaryKey
+	// if no clustering key is set
+	GetByPartitionKey(ctx context.Context, keys ...interface{}) (*T, error)
+
+	// GetByPrimaryKey gets by the full primary key (partitioning and clustering keys)
+	GetByPrimaryKey(ctx context.Context, primaryKeys ...interface{}) (*T, error)
+
+	// GetByIndexedColumn gets the first record matching an index
+	GetByIndexedColumn(ctx context.Context, columnName string, value interface{}, opts ...QueryOption) (*T, error)
+
+	// Scan performs a paged scan of the table, processing each batch of records. If the ScanFn returns true,
+	// the scan will continue advancing until no more records are returned.
+	Scan(ctx context.Context, fn PageHandlerFn[T], opts ...QueryOption) error
+
+	// SelectByCustomQuery gets all records by a custom query in a paged fashion
+	SelectByCustomQuery(ctx context.Context, queryBuilder QueryBuilderFn, pagingFn PageHandlerFn[T], opts ...QueryOption) error
+
+	// SelectByPartitionKey gets all records from a partition
+	SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...interface{}) error
+
+	// SelectByIndexedColumn gets all records matching an indexed column
+	SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue interface{}, opts ...QueryOption) error
+
+	// Update an object. Will error if the object does not exist.
+	Update(ctx context.Context, instance *T, opts ...UpdateOption) error
+
+	// Upsert overwrites or inserts an object.
+	Upsert(ctx context.Context, instance *T, opts ...UpdateOption) error
+}
+
 // InsertOption is an interface that describes options that can mutate an insert
 type InsertOption interface {
 	applyToInsertBuilder(builder *qb.InsertBuilder) *qb.InsertBuilder
@@ -85,4 +125,13 @@ type UpdateOption interface {
 type UpsertOption interface {
 	InsertOption
 	UpdateOption
+}
+
+// ManagerOption defines an option for the table manager
+type ManagerOption interface {
+	mutateParameters(ctx context.Context, params *tableManagerParameters) error
+	onStart(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification) error
+	insertOptions() []InsertOption
+	updateOptions() []UpdateOption
+	upsertOptions() []UpsertOption
 }

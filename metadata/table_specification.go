@@ -46,7 +46,7 @@ func (t *TableSpecification) Validate() error {
 
 	// Check names
 	if !isValidName(t.Name) {
-		return fmt.Errorf("%w: %q", ErrInvalidColumnName, t.Name)
+		return fmt.Errorf("%w: %q", ErrInvalidTableOrViewName, t.Name)
 	}
 
 	// Check all columns

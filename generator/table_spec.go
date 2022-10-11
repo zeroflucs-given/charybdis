@@ -32,8 +32,8 @@ func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecif
 		}), func(i int, c *metadata.ColumnSpecification) string {
 			return c.Name + " " + c.CQLType
 		}), ", "),
-		getKeySpec(spec),
-	) + getClusteringSuffix(spec)
+		getKeySpec(spec.Partitioning, spec.Clustering),
+	) + getClusteringSuffix(spec.Clustering)
 	commands = append(commands, DDLOperation{
 		Description: fmt.Sprintf("Create the table %q with columns relating to the key.", spec.Name),
 		Command:     initialCreate,
@@ -78,14 +78,14 @@ func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecif
 
 // getKeySpec creates the key specifier, i.e. "(pk1, pk2), ck1, ck2" that describes
 // the physical order of the data
-func getKeySpec(spec *metadata.TableSpecification) string {
-	keys := make([]string, len(spec.Partitioning))
-	for i, item := range spec.Partitioning {
+func getKeySpec(partitionCols []*metadata.PartitioningColumn, clusteringCols []*metadata.ClusteringColumn) string {
+	keys := make([]string, len(partitionCols))
+	for i, item := range partitionCols {
 		keys[i] = item.Column.Name
 	}
 
 	keyString := "(" + strings.Join(keys, ", ") + ")"
-	for _, item := range spec.Clustering {
+	for _, item := range clusteringCols {
 		keyString += ", " + item.Column.Name
 	}
 
@@ -93,9 +93,9 @@ func getKeySpec(spec *metadata.TableSpecification) string {
 }
 
 // getClusteringSuffix gets a WITH CLUSTERING ORDER clause if appropriate
-func getClusteringSuffix(spec *metadata.TableSpecification) string {
+func getClusteringSuffix(clusteringCols []*metadata.ClusteringColumn) string {
 	sortStrings := []string{}
-	for _, item := range spec.Clustering {
+	for _, item := range clusteringCols {
 		if item.Descending {
 			sortStrings = append(sortStrings, fmt.Sprintf("%v DESC", item.Column.Name))
 		} else {

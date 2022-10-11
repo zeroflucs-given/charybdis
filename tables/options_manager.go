@@ -12,7 +12,7 @@ import (
 
 // WithCluster sets the cluster connection to use when working with the
 // manager instance
-func WithCluster(cluster *gocql.ClusterConfig) TableManagerOption {
+func WithCluster(cluster *gocql.ClusterConfig) ManagerOption {
 	return &tableManagerOption{
 		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
 			params.SessionFactory = func(keyspace string) (*gocql.Session, error) {
@@ -26,7 +26,7 @@ func WithCluster(cluster *gocql.ClusterConfig) TableManagerOption {
 }
 
 // WithTraceProvider sets the trace provider
-func WithTraceProvider(provider trace.TracerProvider) TableManagerOption {
+func WithTraceProvider(provider trace.TracerProvider) ManagerOption {
 	return &tableManagerOption{
 		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
 			params.TracerProvider = provider
@@ -37,7 +37,7 @@ func WithTraceProvider(provider trace.TracerProvider) TableManagerOption {
 
 // WithDefaultTTL is a table-manager option that sets the default TTL for inserts
 // and updates.
-func WithDefaultTTL(d time.Duration) TableManagerOption {
+func WithDefaultTTL(d time.Duration) ManagerOption {
 	ttlOpt := WithTTL(d)
 
 	return &tableManagerOption{
@@ -47,7 +47,7 @@ func WithDefaultTTL(d time.Duration) TableManagerOption {
 }
 
 // WithKeyspace sets the keyspace of the table-manager
-func WithKeyspace(keyspace string) TableManagerOption {
+func WithKeyspace(keyspace string) ManagerOption {
 	return &tableManagerOption{
 		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
 			params.Keyspace = keyspace
@@ -57,7 +57,7 @@ func WithKeyspace(keyspace string) TableManagerOption {
 }
 
 // WithLogger sets the logger for the table manager
-func WithLogger(log *zap.Logger) TableManagerOption {
+func WithLogger(log *zap.Logger) ManagerOption {
 	return &tableManagerOption{
 		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
 			params.Logger = log
@@ -67,7 +67,7 @@ func WithLogger(log *zap.Logger) TableManagerOption {
 }
 
 // WithTableSpecification sets the table specification to use
-func WithTableSpecification(spec *metadata.TableSpecification) TableManagerOption {
+func WithTableSpecification(spec *metadata.TableSpecification) ManagerOption {
 	return &tableManagerOption{
 		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
 			params.TableSpec = spec
@@ -76,27 +76,42 @@ func WithTableSpecification(spec *metadata.TableSpecification) TableManagerOptio
 	}
 }
 
+// WithViewSpecification sets the view specification to use
+func WithViewSpecification(spec *metadata.ViewSpecification) ManagerOption {
+	return &tableManagerOption{
+		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
+			params.ViewSpec = spec
+			return nil
+		},
+	}
+}
+
 // WithStartupFn attaches a function at startup time for the table-manager. This
 // can for example be used to perform DDL/table specificiation maintainance.
-func WithStartupFn(fn TableManagerStartupFn) TableManagerOption {
+func WithStartupFn(fn TableManagerStartupFn) ManagerOption {
 	return &tableManagerOption{
 		startHook: fn,
+	}
+}
+
+type SpecMutator func(ctx context.Context, table *metadata.TableSpecification, view *metadata.ViewSpecification) (*metadata.TableSpecification, *metadata.ViewSpecification, error)
+
+// WithSpecMutator mutates the table/view specifications on startup
+func WithSpecMutator(mutator SpecMutator) ManagerOption {
+	return &tableManagerOption{
+		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
+			t, v, err := mutator(ctx, params.TableSpec, params.ViewSpec)
+			params.TableSpec = t
+			params.ViewSpec = v
+			return err
+		},
 	}
 }
 
 type tableParameterMutator func(ctx context.Context, params *tableManagerParameters) error
 
 // TableManagerStartupFn is a startup function called before the table-manager is deemed ready to use.
-type TableManagerStartupFn func(ctx context.Context, keyspace string, spec *metadata.TableSpecification) error
-
-// TableManagerOption defines an option for the table manager
-type TableManagerOption interface {
-	mutateParameters(ctx context.Context, params *tableManagerParameters) error
-	onStart(ctx context.Context, keyspace string, spec *metadata.TableSpecification) error
-	insertOptions() []InsertOption
-	updateOptions() []UpdateOption
-	upsertOptions() []UpsertOption
-}
+type TableManagerStartupFn func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification) error
 
 type tableManagerOption struct {
 	parametersHook tableParameterMutator
@@ -115,12 +130,12 @@ func (t *tableManagerOption) mutateParameters(ctx context.Context, params *table
 	return t.parametersHook(ctx, params)
 }
 
-func (t *tableManagerOption) onStart(ctx context.Context, keyspace string, spec *metadata.TableSpecification) error {
+func (t *tableManagerOption) onStart(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification) error {
 	if t.startHook == nil {
 		return nil
 	}
 
-	return t.startHook(ctx, keyspace, spec)
+	return t.startHook(ctx, keyspace, table, view)
 }
 
 func (t tableManagerOption) insertOptions() []InsertOption {

@@ -38,6 +38,7 @@ var testTableDeclarations = []string{
 	"CREATE TABLE charybdis_tests.orders (order_id varchar, shipping_address varchar, PRIMARY KEY(order_id))",
 	"CREATE TABLE charybdis_tests.order_items (order_id varchar, item_id varchar, quantity int, PRIMARY KEY((order_id), item_id))",
 	"CREATE INDEX order_item_lookup ON charybdis_tests.order_items (item_id)",
+	"CREATE MATERIALIZED VIEW charybdis_tests.item_orders AS SELECT * FROM charybdis_tests.order_items WHERE order_id IS NOT NULL AND item_id IS NOT NULL PRIMARY KEY((item_id), order_id) WITH CLUSTERING ORDER BY (order_id ASC)",
 }
 
 var testClusterConfig *gocql.ClusterConfig
@@ -102,6 +103,24 @@ var OrderItemsTableSpec = &metadata.TableSpecification{
 	Clustering: []*metadata.ClusteringColumn{
 		{
 			Column:     orderItemColumns[1],
+			Order:      1,
+			Descending: false,
+		},
+	},
+}
+
+var OrderItemsViewSpec = &metadata.ViewSpecification{
+	Name:  "item_orders",
+	Table: OrdersTableSpec,
+	Partitioning: []*metadata.PartitioningColumn{
+		{
+			Column: orderItemColumns[1],
+			Order:  1,
+		},
+	},
+	Clustering: []*metadata.ClusteringColumn{
+		{
+			Column:     orderItemColumns[0],
 			Order:      1,
 			Descending: false,
 		},

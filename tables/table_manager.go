@@ -17,7 +17,7 @@ import (
 )
 
 // NewTableManager creates a table-manager instance
-func NewTableManager[T any](ctx context.Context, options ...TableManagerOption) (TableManager[T], error) {
+func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (TableManager[T], error) {
 	// Apply parameters
 	params := tableManagerParameters{}
 	params.ensureDefaults()
@@ -30,7 +30,7 @@ func NewTableManager[T any](ctx context.Context, options ...TableManagerOption) 
 
 	// Execute hooks
 	for _, opt := range options {
-		err := opt.onStart(ctx, params.Keyspace, params.TableSpec)
+		err := opt.onStart(ctx, params.Keyspace, params.TableSpec, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error running table manager start hooks: %w", err)
 		}
@@ -58,8 +58,8 @@ func NewTableManager[T any](ctx context.Context, options ...TableManagerOption) 
 		Tracer: otel.Tracer(TracingModuleName),
 
 		// Metadata
+		Name:          params.TableSpec.Name,
 		Session:       wrappedSession,
-		Spec:          params.TableSpec,
 		Table:         table,
 		TableMetadata: table.Metadata(),
 
@@ -87,13 +87,13 @@ func NewTableManager[T any](ctx context.Context, options ...TableManagerOption) 
 // tableManagerImpl is our underyling table manager implementation type. We make it private here
 // to prevent embedding directly.
 type tableManagerImpl[T any] struct {
-	Session         gocqlx.Session               // Session
-	Spec            *metadata.TableSpecification // Table spec
-	Logger          *zap.Logger                  // Logger
-	Tracer          trace.Tracer                 // OpenTelemetry tracer
-	TraceAttributes []attribute.KeyValue         // Common trace attributes
-	Table           *table.Table                 // Table helper
-	TableMetadata   table.Metadata               // Table metadata
+	Name            string               // Name of opbject
+	Session         gocqlx.Session       // Session
+	Logger          *zap.Logger          // Logger
+	Tracer          trace.Tracer         // OpenTelemetry tracer
+	TraceAttributes []attribute.KeyValue // Common trace attributes
+	Table           *table.Table         // Table helper
+	TableMetadata   table.Metadata       // Table metadata
 
 	// Helper data
 	readConsistency        gocql.Consistency // Read consistency
