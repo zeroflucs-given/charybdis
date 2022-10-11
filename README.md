@@ -19,6 +19,15 @@ provides supporting functions for simple runtime access to data. If you want to 
 the keyspaces by hand, and use features like expiry, lightweight transactions together - `charybdis` might be what you're looking
 for.
 
+## About ZeroFlucs 
+[ZeroFlucs](https://zeroflucs.io) is a B2B provider of pricing technology for Sportsbooks/wagering service providers globally. We
+use Open-Source software through our platform stack. This, along with other projects is made available through our _zeroflucs-given_ 
+Github profile on MIT licensing. To learn more you can visit:
+
+- [The ZeroFlucs Website](https://zeroflucs.io) - For information about our products and services.
+- [The ZeroFlucs Team Blog](https://blog.zeroflucs.io/) - For more content and posts from the ZeroFlucs team.
+- [ZeroFlucs-Given](https://github.com/zeroflucs-given/) - For more OSS contributions.
+
 ## Why Does this Exist?
 At ZeroFlucs we use ScyllaDB as the backbone of our Go based microservices platform. However, it was something of a 
 love-hate relationship early on. We started with `gocql` and `gocqlx` packages (ScyllaDB forks), but the problems we 
