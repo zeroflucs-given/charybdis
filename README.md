@@ -2,7 +2,9 @@
 [__/kəˈrɪbdɪs/__](https://en.wikipedia.org/wiki/Charybdis)
 
 [![GoDoc](https://godoc.org/github.com/zeroflucs-given/charybdis?status.svg)](https://godoc.org/github.com/zeroflucs-given/charybdis)
+![GitHub issues](https://img.shields.io/github/issues/zeroflucs-given/generics)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/y/zeroflucs-given/charybdis)
 
 ![](docs/github-banner-small.png)
 
@@ -43,6 +45,9 @@ To address this, we created `charybdis` - a friend for Scylla. Charybdis is a Go
 lightweight  low-code wrappers for interacting with ScyllaDB, as well as easy access to complex concepts such as LWTs,
 indexes and some other features. In most use scenarios, this allows a developer to avoid writing 
 DDL directly, and instead focus on writing application code. 
+
+We love `gocql` and `gocqlx`, they're both under the hood still - however we just prefer to keep our services more
+isolated from the nuts-and-bolts for common use cases.
 
 ---
 ## Usage

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/zeroflucs-given/charybdis/metadata"
-	"github.com/zeroflucs/generics"
+	"github.com/zeroflucs-given/generics"
 )
 
 // CreateDDLFromTableSpecification creates the DDL to create and extend a table from it's table specification

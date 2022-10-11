@@ -9,7 +9,7 @@ import (
 	"github.com/scylladb/gocqlx/v2/qb"
 	"github.com/scylladb/gocqlx/v2/table"
 	"github.com/zeroflucs-given/charybdis/metadata"
-	"github.com/zeroflucs/generics"
+	"github.com/zeroflucs-given/generics"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"

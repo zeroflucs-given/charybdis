@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/scylladb/gocqlx/v2/table"
-	"github.com/zeroflucs/generics"
+	"github.com/zeroflucs-given/generics"
 )
 
 // TableSpecification is a description of a table.
