@@ -1,4 +1,5 @@
-# charybdis
+# charybdis 
+[__/kəˈrɪbdɪs/__](https://en.wikipedia.org/wiki/Charybdis)
 
 [![GoDoc](https://godoc.org/github.com/zeroflucs-given/charybdis?status.svg)](https://godoc.org/github.com/zeroflucs-given/charybdis)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
