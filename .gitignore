@@ -1,0 +1,21 @@
+# Block extensionless (Binaries) by default
+*
+!/**/
+!*.*
+
+# Extensionless files to allow
+!Dockerfile
+
+# OS Specific
+.DS_Store
+thumbs.db
+
+# Common Junk
+*.tmp
+*.bak
+*.tar.gz
+
+# Coverage output and HTML
+coverage.*
+*.lcov
+*.pprof
