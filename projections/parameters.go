@@ -70,6 +70,16 @@ func WithCluster(cluster *gocql.ClusterConfig) ProjectionManagerOption {
 	}
 }
 
+// WithDDLCluster sets the cluster config to use for executing DDL operations. If
+// the same cluster is used, the WithCluster operator will set both by default.
+func WithDDLCluster(cluster *gocql.ClusterConfig) ProjectionManagerOption {
+	return &projectionManagerOptionImpl{
+		paramHook: func(params *projectionManagerParams) {
+			params.ddlClusterConfig = cluster
+		},
+	}
+}
+
 // WithControlTableSuffix is the suffix used for the control table
 func WithControlTableSuffix(suffix string) ProjectionManagerOption {
 	return &projectionManagerOptionImpl{
