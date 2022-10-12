@@ -81,4 +81,12 @@ func main() {
 	if errWrite != nil {
 		panic(errWrite)
 	}
+
+	// Query back out. We can Select, Scan, etc from this projection
+	lookup, err := proj.Projection("users_lookup").GetByPartitionKey(ctx, "APAC")
+	if err != nil {
+		panic(err)
+	}
+
+	log.With(zap.Any("result", lookup)).Info("Fetched from projection")
 }

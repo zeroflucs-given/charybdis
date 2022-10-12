@@ -35,14 +35,14 @@ func NewProjectionManager[T any](ctx context.Context,
 	}
 
 	// Build our projection objects
-	var projections []*projectionImpl[T]
+	projections := map[string]*projectionImpl[T]{}
 	for i, proj := range params.projections {
 		built, err := buildProjection[T](ctx, params, proj)
 		if err != nil {
 			return nil, fmt.Errorf("error configuring projection %d: %w", i, err)
 		}
 		if built != nil {
-			projections = append(projections, built)
+			projections[proj.Name] = built
 		}
 	}
 
@@ -58,9 +58,9 @@ func NewProjectionManager[T any](ctx context.Context,
 
 // projectionManagerImpl is our type that implements the projection manager
 type projectionManagerImpl[T any] struct {
-	controlTable tables.TableManager[T] // The control-table that stores only the key data
-	naturalKeyEx PrimaryKeyExtractor    // Function to extract primary key of base table
-	projections  []*projectionImpl[T]   // N alternate projections
+	controlTable tables.TableManager[T]        // The control-table that stores only the key data
+	naturalKeyEx PrimaryKeyExtractor           // Function to extract primary key of base table
+	projections  map[string]*projectionImpl[T] // N alternate projections
 }
 
 func buildControlTableSpec(params *projectionManagerParams) *metadata.TableSpecification {
@@ -145,6 +145,14 @@ func buildProjection[T any](ctx context.Context, params *projectionManagerParams
 		},
 		leafTable: tableManager,
 	}, nil
+}
+
+// Projection gets a projection by name
+func (p *projectionManagerImpl[T]) Projection(name string) tables.ViewManager[T] {
+	if proj, ok := p.projections[name]; ok {
+		return proj.leafTable
+	}
+	return nil
 }
 
 // ProcessChange on a projection manager processes the incoming update.
