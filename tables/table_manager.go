@@ -90,5 +90,7 @@ type tableManagerImpl[T any] struct {
 	baseManagerImpl[T]
 
 	// Helper data
+	preHooks         []ChangeHook[T]
+	postHooks        []ChangeHook[T]
 	writeConsistency gocql.Consistency // Write consistency
 }

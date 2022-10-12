@@ -15,6 +15,12 @@ func (t *tableManagerImpl[T]) Update(ctx context.Context, instance *T, opts ...U
 
 // updateInternal is a helper function that performs a single update
 func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, opts ...UpdateOption) error {
+	// Pre-change hooks
+	errPre := t.runPreHooks(ctx, instance)
+	if errPre != nil {
+		return errPre
+	}
+
 	// Build our query
 	query := qb.Update(t.qualifiedTableName).
 		Set(t.nonKeyColumns...).
@@ -38,6 +44,12 @@ func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, o
 		return err
 	} else if !applied {
 		return ErrPreconditionFailed
+	}
+
+	// Post-change hooks
+	errPost := t.runPostHooks(ctx, instance)
+	if errPost != nil {
+		return errPost
 	}
 
 	return nil

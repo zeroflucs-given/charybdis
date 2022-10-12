@@ -39,6 +39,12 @@ func (t *tableManagerImpl[T]) InsertBulk(ctx context.Context, instances []*T, co
 
 // insertInternal is a helper function that performs a single upsert
 func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, opts ...InsertOption) error {
+	// Pre-change hooks
+	errPre := t.runPreHooks(ctx, instance)
+	if errPre != nil {
+		return errPre
+	}
+
 	// We must exist
 	opts = append(opts, WithNotExists())
 
@@ -62,6 +68,12 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, o
 
 	if !applied {
 		return ErrPreconditionFailed
+	}
+
+	// Post-change hooks
+	errPost := t.runPostHooks(ctx, instance)
+	if errPost != nil {
+		return errPost
 	}
 
 	return nil

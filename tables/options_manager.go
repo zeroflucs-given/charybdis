@@ -149,3 +149,11 @@ func (t tableManagerOption) updateOptions() []UpdateOption {
 func (t tableManagerOption) upsertOptions() []UpsertOption {
 	return t.upsertOpts
 }
+
+func (t tableManagerOption) beforeChange(ctx context.Context, rec interface{}) error {
+	return nil
+}
+
+func (t tableManagerOption) afterChange(ctx context.Context, rec interface{}) error {
+	return nil
+}

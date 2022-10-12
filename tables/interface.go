@@ -61,6 +61,13 @@ type TableManager[T any] interface {
 
 	// Upsert overwrites or inserts an object.
 	Upsert(ctx context.Context, instance *T, opts ...UpdateOption) error
+
+	// AddPreChangeHook adds a pre-change hook. These hooks do not fire for deletes.
+	AddPreChangeHook(hook ChangeHook[T])
+
+	// AddPostChangeHook adds a post-change hook. Note that post-change hooks that fail
+	// will leave the base tables updated. These hooks do not fire for deletes.
+	AddPostChangeHook(hook ChangeHook[T])
 }
 
 // ViewManager is an object that provides an abstraction over a view in ScyllaDB
@@ -128,4 +135,6 @@ type ManagerOption interface {
 	insertOptions() []InsertOption
 	updateOptions() []UpdateOption
 	upsertOptions() []UpsertOption
+	beforeChange(ctx context.Context, rec interface{}) error
+	afterChange(ctx context.Context, rec interface{}) error
 }

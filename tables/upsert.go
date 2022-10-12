@@ -38,6 +38,12 @@ func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, co
 
 // upsertInternal is a helper function that performs a single upsert
 func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, opts ...UpdateOption) error {
+	// Pre-change hooks
+	errPre := t.runPreHooks(ctx, instance)
+	if errPre != nil {
+		return errPre
+	}
+
 	// Build our query
 	query := qb.Update(t.qualifiedTableName).
 		Set(t.nonKeyColumns...).
@@ -59,6 +65,12 @@ func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, o
 
 	if err != nil {
 		return err
+	}
+
+	// Post-change hooks
+	errPost := t.runPostHooks(ctx, instance)
+	if errPost != nil {
+		return errPost
 	}
 
 	return nil
