@@ -36,6 +36,9 @@ type TableManager[T any] interface {
 	// GetByIndexedColumn gets the first record matching an index
 	GetByIndexedColumn(ctx context.Context, columnName string, value interface{}, opts ...QueryOption) (*T, error)
 
+	// GetTableSpec gets the table specification for this table-manager
+	GetTableSpec() *metadata.TableSpecification
+
 	// Insert a single record
 	Insert(ctx context.Context, instance *T, options ...InsertOption) error
 

@@ -6,3 +6,11 @@ type ClusteringColumn struct {
 	Order      int                  `json:"order"`      // Order of the column
 	Descending bool                 `json:"descending"` // Descending order?
 }
+
+// ClusteringColumnLookup is a clustering column definiton without a reference back
+// to the base.
+type ClusteringColumnLookup struct {
+	Column     string `json:"column"`     // The column we're referring to
+	Order      int    `json:"order"`      // Order of the column
+	Descending bool   `json:"descending"` // Descending order?
+}

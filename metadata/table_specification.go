@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/scylladb/gocqlx/v2/table"
 	"github.com/zeroflucs-given/generics"
@@ -14,6 +15,61 @@ type TableSpecification struct {
 	Partitioning []*PartitioningColumn           `json:"partitioning"` // Partitioning keys
 	Clustering   []*ClusteringColumn             `json:"clustering"`   // Clustering keys
 	Indexes      map[string]*ColumnSpecification `json:"indexes"`      // Indexes to create
+}
+
+// Canonicalize the form of the structure
+func (t *TableSpecification) Canonicalize() {
+	sort.Slice(t.Partitioning, func(i, j int) bool {
+		return t.Partitioning[i].Order < t.Partitioning[j].Order
+	})
+	sort.Slice(t.Clustering, func(i, j int) bool {
+		return t.Clustering[i].Order < t.Clustering[j].Order
+	})
+}
+
+// Clone the table specification
+func (t *TableSpecification) Clone(includeIndexes bool) *TableSpecification {
+	if t == nil {
+		return nil
+	}
+
+	spec := &TableSpecification{
+		Name: t.Name,
+	}
+
+	colMap := map[string]*ColumnSpecification{}
+	for _, col := range t.Columns {
+		cloned := &ColumnSpecification{
+			Name:              col.Name,
+			CQLType:           col.CQLType,
+			IsPartitioningKey: col.IsPartitioningKey,
+			IsClusteringKey:   col.IsClusteringKey,
+		}
+		colMap[col.Name] = cloned
+		spec.Columns = append(spec.Columns, cloned)
+	}
+	for _, pk := range t.Partitioning {
+		spec.Partitioning = append(spec.Partitioning, &PartitioningColumn{
+			Column: colMap[pk.Column.Name],
+			Order:  pk.Order,
+		})
+	}
+	for _, ck := range t.Clustering {
+		spec.Clustering = append(spec.Clustering, &ClusteringColumn{
+			Column:     colMap[ck.Column.Name],
+			Order:      ck.Order,
+			Descending: ck.Descending,
+		})
+	}
+
+	if includeIndexes {
+		spec.Indexes = map[string]*ColumnSpecification{}
+		for k, c := range t.Indexes {
+			spec.Indexes[k] = colMap[c.Name]
+		}
+	}
+
+	return spec
 }
 
 // ToCQLX converts this tablespec to a go-cqlx friendly metadata object.

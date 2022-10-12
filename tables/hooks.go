@@ -33,7 +33,7 @@ func (t *tableManagerImpl[T]) runPreHooks(ctx context.Context, instance *T) erro
 
 // runPostHooks runs pre-change hooks
 func (t *tableManagerImpl[T]) runPostHooks(ctx context.Context, instance *T) error {
-	for i, hook := range t.preHooks {
+	for i, hook := range t.postHooks {
 		err := hook(ctx, instance)
 		if err != nil {
 			return fmt.Errorf("error executing post-hook at index %d: %w", i, err)

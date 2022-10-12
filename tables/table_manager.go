@@ -80,6 +80,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 			}),
 		},
 
+		tableSpec:        params.TableSpec,
 		writeConsistency: params.WriteConsistency,
 	}, nil
 }
@@ -90,7 +91,13 @@ type tableManagerImpl[T any] struct {
 	baseManagerImpl[T]
 
 	// Helper data
+	tableSpec        *metadata.TableSpecification
 	preHooks         []ChangeHook[T]
 	postHooks        []ChangeHook[T]
 	writeConsistency gocql.Consistency // Write consistency
+}
+
+// GetTableSpec gets the table specification we're using
+func (t *tableManagerImpl[T]) GetTableSpec() *metadata.TableSpecification {
+	return t.tableSpec.Clone(true)
 }
