@@ -67,6 +67,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	manager.AddPreDeleteHook(proj.ProcessDelete)
 	manager.AddPostChangeHook(proj.ProcessChange)
 
 	// Example Part 3 - Write to base table

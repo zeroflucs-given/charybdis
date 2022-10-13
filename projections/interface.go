@@ -13,6 +13,9 @@ type ProjectionManager[T any] interface {
 
 	// ProcessChange performs the processing of a given change
 	ProcessChange(ctx context.Context, update *T) error
+
+	// ProcessDelete performs the processing of a deleted object
+	ProcessDelete(ctx context.Context, deleted *T) error
 }
 
 // Projection is our type that describes the API of a single project.

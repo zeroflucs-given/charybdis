@@ -92,6 +92,7 @@ type tableManagerImpl[T any] struct {
 
 	// Helper data
 	tableSpec        *metadata.TableSpecification
+	preDeleteHooks   []ChangeHook[T]
 	preHooks         []ChangeHook[T]
 	postHooks        []ChangeHook[T]
 	writeConsistency gocql.Consistency // Write consistency

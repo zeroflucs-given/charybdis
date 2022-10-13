@@ -71,6 +71,10 @@ type TableManager[T any] interface {
 	// AddPostChangeHook adds a post-change hook. Note that post-change hooks that fail
 	// will leave the base tables updated. These hooks do not fire for deletes.
 	AddPostChangeHook(hook ChangeHook[T])
+
+	// AddPreDeleteHook adds a pre-delete hook. This will force an additional cost, in
+	// that we must retrieve the full record first before.
+	AddPreDeleteHook(hook ChangeHook[T])
 }
 
 // ViewManager is an object that provides an abstraction over a view in ScyllaDB

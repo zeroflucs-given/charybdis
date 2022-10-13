@@ -155,6 +155,41 @@ func (p *projectionManagerImpl[T]) Projection(name string) tables.ViewManager[T]
 	return nil
 }
 
+// ProcessDelete performs the processing of a deleted object
+func (p *projectionManagerImpl[T]) ProcessDelete(ctx context.Context, deleted *T) error {
+	naturalKey, err := p.naturalKeyEx(deleted)
+	if err != nil {
+		return fmt.Errorf("error extracting projection manager control key: %w", err)
+	}
+
+	// Get the control table entry for this table and see if any of the control-values
+	// are changed. If they are all the same, we can skip.
+	ctrl, err := p.controlTable.GetByPrimaryKey(ctx, naturalKey...)
+	if err != nil {
+		return fmt.Errorf("error fetching control table record: %w", err)
+	}
+
+	// Remove the data from all projections
+	grpCleanup, cleanupCtx := errgroup.WithContext(ctx)
+	for _, p := range p.projections {
+		proj := p
+		grpCleanup.Go(func() error {
+			return proj.Delete(cleanupCtx, ctrl)
+		})
+	}
+	errCleanup := grpCleanup.Wait()
+	if errCleanup != nil {
+		return fmt.Errorf("error cleaning up projection tables before rewrite: %w", errCleanup)
+	}
+
+	errDeleteCtrl := p.controlTable.Delete(ctx, ctrl)
+	if errDeleteCtrl != nil {
+		return fmt.Errorf("error deleting control table record: %w", errDeleteCtrl)
+	}
+
+	return nil
+}
+
 // ProcessChange on a projection manager processes the incoming update.
 func (p *projectionManagerImpl[T]) ProcessChange(ctx context.Context, updatedValue *T) error {
 	naturalKey, err := p.naturalKeyEx(updatedValue)

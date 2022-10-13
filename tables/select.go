@@ -43,6 +43,23 @@ func (t *baseManagerImpl[T]) GetByPrimaryKey(ctx context.Context, primaryKeys ..
 	})
 }
 
+// GetByExample gets a single record, binding by example object with the key fields all set
+func (t *baseManagerImpl[T]) GetByExample(ctx context.Context, example *T) (*T, error) {
+	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByExample", t.TraceAttributes, func(ctx context.Context) (*T, error) {
+		stmt, params := qb.
+			Select(t.Table.Name()).Columns(t.allColumnNames...).
+			Where(t.allKeyPredicates...).
+			ToCql()
+
+		var target T
+		errQuery := t.Session.ContextQuery(ctx, stmt, params).
+			Consistency(t.readConsistency).
+			BindStruct(example).
+			Get(&target)
+		return &target, errQuery
+	})
+}
+
 // GetByIndexedColumn gets the first record matching an index
 func (t *baseManagerImpl[T]) GetByIndexedColumn(ctx context.Context, columnName string, value interface{}, opts ...QueryOption) (*T, error) {
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByIndexedColumn", t.TraceAttributes, func(ctx context.Context) (*T, error) {
