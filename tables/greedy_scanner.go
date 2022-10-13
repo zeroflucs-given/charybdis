@@ -8,6 +8,11 @@ type GreedyScanner[T any] struct {
 	items []*T
 }
 
+// Preallocate ensures the slice exists, pre-allocated to a given size
+func (g *GreedyScanner[T]) Preallocate(cap int) {
+	g.items = make([]*T, 0, cap)
+}
+
 // OnPage is a PageHandlerFn that always keeps requesting more data
 func (g *GreedyScanner[T]) OnPage(ctx context.Context, records []*T, pageState []byte) (bool, error) {
 	g.items = append(g.items, records...)
