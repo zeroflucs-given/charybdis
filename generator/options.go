@@ -3,12 +3,14 @@ package generator
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/charybdis/tables"
+	"github.com/zeroflucs-given/generics"
 	"go.uber.org/zap"
 )
 
@@ -104,6 +106,35 @@ func WithSimpleKeyspaceManagement(log *zap.Logger, cluster *gocql.ClusterConfig,
 		}`, keyspace, replicationFactor)
 
 		log.With(zap.String("query", stmt)).Info("Creating keyspace, if required with simple replication.")
+
+		return sess.ExecStmt(stmt)
+	})
+}
+
+// WithNetworkAwareKeyspaceManagement creates a network aware keyspace
+func WithNetworkAwareKeyspaceManagement(log *zap.Logger, cluster *gocql.ClusterConfig, replicationFactors map[string]int32) tables.ManagerOption {
+	if log == nil {
+		log = zap.NewNop()
+	}
+
+	datacentres := generics.Map(generics.ToKeyValues(replicationFactors), func(i int, kvp generics.KeyValuePair[string, int32]) string {
+		return fmt.Sprintf("'%v': %d", kvp.Key, kvp.Value)
+	})
+	sort.Strings(datacentres)
+
+	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification) error {
+		sess, err := gocqlx.WrapSession(cluster.CreateSession())
+		if err != nil {
+			return fmt.Errorf("error keyspace management session: %w", err)
+		}
+		defer sess.Close()
+
+		stmt := fmt.Sprintf(`CREATE KEYSPACE IF NOT EXISTS  %s WITH replication = {
+			'class' : 'NetworkTopologyStrategy',
+			%v			
+		}`, keyspace, strings.Join(datacentres, ", "))
+
+		log.With(zap.String("query", stmt)).Info("Creating keyspace, if required with network aware replication.")
 
 		return sess.ExecStmt(stmt)
 	})
