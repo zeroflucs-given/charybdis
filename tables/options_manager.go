@@ -25,6 +25,26 @@ func WithCluster(cluster *gocql.ClusterConfig) ManagerOption {
 	}
 }
 
+// WithDefaultReadConsistency sets the default read consistecy
+func WithDefaultReadConsistency(level gocql.Consistency) ManagerOption {
+	return &tableManagerOption{
+		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
+			params.ReadConsistency = level
+			return nil
+		},
+	}
+}
+
+// WithDefaultWriteConsistency sets the default read consistecy
+func WithDefaultWriteConsistency(level gocql.Consistency) ManagerOption {
+	return &tableManagerOption{
+		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
+			params.WriteConsistency = level
+			return nil
+		},
+	}
+}
+
 // WithTraceProvider sets the trace provider
 func WithTraceProvider(provider trace.TracerProvider) ManagerOption {
 	return &tableManagerOption{
