@@ -53,12 +53,32 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 
 	table := params.TableSpec.ToCQLX()
 
+	// View columns may be in a different order to the base table.
+	// Build the column list using the given partition and clustering keys, then add any remaining columns
+	allColumns := []string{}
+	for _, c := range params.ViewSpec.Partitioning{
+		allColumns = append(allColumns, c.Column.Name)
+	}
+	for _, c := range params.ViewSpec.Clustering{
+		allColumns = append(allColumns, c.Column.Name)
+	}
+	for _, c := range table.Metadata().Columns{
+		// Check this column doesn't already exist in the list
+		for _, a := range allColumns {
+			if a == c {
+				continue
+			}
+		}
+		allColumns = append(allColumns, c)
+	}
+
+
 	return &viewManager[T]{
 		baseManagerImpl: baseManagerImpl[T]{
 			// Base objects
 			Logger: params.Logger.With(
 				zap.String("keyspace", params.Keyspace),
-				zap.String("view", params.TableSpec.Name)),
+				zap.String("view", params.ViewSpec.Name)),
 			Tracer: otel.Tracer(TracingModuleName),
 
 			// Metadata
@@ -70,7 +90,7 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 			// Helper data
 			readConsistency:    params.ReadConsistency,
 			qualifiedTableName: params.Keyspace + "." + params.ViewSpec.Name,
-			allColumnNames:     table.Metadata().Columns,
+			allColumnNames:     allColumns,
 			partitionKeyPredicates: generics.Map(params.ViewSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
 				return qb.Eq(c.Column.Name)
 			}),
