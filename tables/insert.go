@@ -45,7 +45,7 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, o
 		return errPre
 	}
 
-	// We must exist
+	// We must not exist
 	opts = append(opts, WithNotExists())
 
 	// Build our query

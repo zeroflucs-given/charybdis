@@ -63,7 +63,7 @@ type TableManager[T any] interface {
 	Update(ctx context.Context, instance *T, opts ...UpdateOption) error
 
 	// Upsert overwrites or inserts an object.
-	Upsert(ctx context.Context, instance *T, opts ...UpdateOption) error
+	Upsert(ctx context.Context, instance *T, opts ...InsertOption) error
 
 	// AddPreChangeHook adds a pre-change hook. These hooks do not fire for deletes.
 	AddPreChangeHook(hook ChangeHook[T])

@@ -198,8 +198,8 @@ satisfied by the existing data in order for an operation to succeed. This allows
 complex conditions.
 
 ### Upsert
-Upserts are operations that can either insert or update data. They're essentially an `update` but does not enforce
-the existing-data requirement. This allows for fire-and-forget data writing, where you don't want to read existing
+Upserts are operations that can either insert or update data. They're essentially an `insert` that doesn't check
+if the data already exists. This allows for fire-and-forget data writing, where you don't want to read existing
 data first.  This generally should be used in scenarios where the consequences of writing data over the top of 
 existing data has no material consequence and no secutity implications.
 
