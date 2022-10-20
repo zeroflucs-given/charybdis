@@ -12,14 +12,14 @@ import (
 type PageHandlerFn[T any] func(ctx context.Context, records []*T, pageState []byte) (bool, error)
 
 // QueryBuilderFn is a function used to provide custom query instances to execute.
-type QueryBuilderFn func(ctx context.Context) *gocqlx.Queryx
+type QueryBuilderFn func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx
 
 // pageQueryInternal performs paging of a query
 func (t *baseManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder QueryBuilderFn, fn PageHandlerFn[T], opts ...QueryOption) error {
 	var pageState []byte
 
 	for {
-		query := queryBuilder(ctx).
+		query := queryBuilder(ctx, t.Session).
 			Consistency(t.readConsistency).
 			PageSize(DefaultPageSize)
 

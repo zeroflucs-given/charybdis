@@ -103,14 +103,14 @@ func (t *baseManagerImpl[T]) SelectByCustomQuery(ctx context.Context, queryBuild
 // SelectByIndexedColumn selects all records by an indexed column
 func (t *baseManagerImpl[T]) SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue interface{}, opts ...QueryOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByIndexedColumn", t.TraceAttributes, func(ctx context.Context) error {
-		return t.pageQueryInternal(ctx, func(ctx context.Context) *gocqlx.Queryx {
+		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			stmt, params := qb.
 				Select(t.Table.Name()).
 				Columns(t.TableMetadata.Columns...).
 				Where(qb.Eq(columnName)).
 				ToCql()
 
-			return t.Session.ContextQuery(ctx, stmt, params).Bind(columnValue)
+			return sess.ContextQuery(ctx, stmt, params).Bind(columnValue)
 		}, fn, opts...)
 	})
 }
@@ -118,9 +118,9 @@ func (t *baseManagerImpl[T]) SelectByIndexedColumn(ctx context.Context, fn PageH
 // SelectByPartitionKey gets all records from a partition
 func (t *baseManagerImpl[T]) SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...interface{}) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByPartitionKey", t.TraceAttributes, func(ctx context.Context) error {
-		return t.pageQueryInternal(ctx, func(ctx context.Context) *gocqlx.Queryx {
+		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			return t.Table.
-				SelectQueryContext(ctx, t.Session, t.allColumnNames...).Bind(partitionKeys...)
+				SelectQueryContext(ctx, sess, t.allColumnNames...).Bind(partitionKeys...)
 		}, fn, opts...)
 	})
 }
