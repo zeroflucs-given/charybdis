@@ -1,0 +1,12 @@
+# OS Cruft
+.DS_Store
+thumbs.db
+
+coverage.*
+*.log
+
+# Profiling stuff
+*.tmp
+*.test
+*.pdf
+*.out

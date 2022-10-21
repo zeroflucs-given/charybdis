@@ -51,27 +51,7 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 		return nil, fmt.Errorf("error wrapping session: %w", err)
 	}
 
-	table := params.TableSpec.ToCQLX()
-
-	// View columns may be in a different order to the base table.
-	// Build the column list using the given partition and clustering keys, then add any remaining columns
-	allColumns := []string{}
-	for _, c := range params.ViewSpec.Partitioning{
-		allColumns = append(allColumns, c.Column.Name)
-	}
-	for _, c := range params.ViewSpec.Clustering{
-		allColumns = append(allColumns, c.Column.Name)
-	}
-	for _, c := range table.Metadata().Columns{
-		// Check this column doesn't already exist in the list
-		for _, a := range allColumns {
-			if a == c {
-				continue
-			}
-		}
-		allColumns = append(allColumns, c)
-	}
-
+	table := params.ViewSpec.ToCQLX()
 
 	return &viewManager[T]{
 		baseManagerImpl: baseManagerImpl[T]{
@@ -90,7 +70,7 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 			// Helper data
 			readConsistency:    params.ReadConsistency,
 			qualifiedTableName: params.Keyspace + "." + params.ViewSpec.Name,
-			allColumnNames:     allColumns,
+			allColumnNames:     table.Metadata().Columns,
 			partitionKeyPredicates: generics.Map(params.ViewSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
 				return qb.Eq(c.Column.Name)
 			}),

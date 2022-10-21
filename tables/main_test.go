@@ -111,7 +111,7 @@ var OrderItemsTableSpec = &metadata.TableSpecification{
 
 var OrderItemsViewSpec = &metadata.ViewSpecification{
 	Name:  "item_orders",
-	Table: OrdersTableSpec,
+	Table: OrderItemsTableSpec,
 	Partitioning: []*metadata.PartitioningColumn{
 		{
 			Column: orderItemColumns[1],

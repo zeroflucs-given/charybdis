@@ -1,0 +1,30 @@
+version: "3.7"
+
+services:
+  node_1:
+    image: ${SCYLLA_IMAGE}
+    privileged: true
+    command: --smp 2 --memory 512M --seeds 192.168.100.11 --overprovisioned 1
+    networks:
+      public:
+        ipv4_address: 192.168.100.11
+    volumes:
+    - type: bind
+      source: ./testdata/config/scylla.yaml
+      target: /etc/scylla/scylla.yaml
+    - type: bind
+      source: ./testdata/pki/ca.crt
+      target: /etc/scylla/ca.crt
+    - type: bind
+      source: ./testdata/pki/cassandra.crt
+      target: /etc/scylla/db.crt
+    - type: bind
+      source: ./testdata/pki/cassandra.key
+      target: /etc/scylla/db.key
+networks:
+  public:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.100.0/24

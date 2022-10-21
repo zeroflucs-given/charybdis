@@ -3,6 +3,7 @@ package metadata
 import (
 	"fmt"
 
+	"github.com/scylladb/gocqlx/v2/table"
 	"github.com/zeroflucs-given/generics"
 )
 
@@ -57,4 +58,55 @@ func (v *ViewSpecification) Validate() error {
 	}
 
 	return nil
+}
+
+// ToCQLX converts this tablespec to a go-cqlx friendly metadata object.
+func (v *ViewSpecification) ToCQLX() *table.Table {
+	if v == nil {
+		return nil
+	}
+
+	// The full list of columns needs to be built from the partition and sorting keys and 
+	// then appending any remaining columns from the base table
+	mappedCols := map[string]*ColumnSpecification{}
+	for _, c := range v.Table.Columns {
+		mappedCols[c.Name] = c
+	}
+
+	allColumns := []*ColumnSpecification{}
+	for _, c := range v.Partitioning{
+		allColumns = append(allColumns, mappedCols[c.Column.Name])
+	}
+	for _, c := range v.Clustering{
+		allColumns = append(allColumns, mappedCols[c.Column.Name])
+	}
+	for _, c := range v.Table.Columns{
+		// Check this column doesn't already exist in the list
+		found := false
+		for _, a := range allColumns {
+			if a == c {
+				found = true
+				break
+			}
+		}
+		if !found {
+			allColumns = append(allColumns, c)
+		}
+	}
+
+	md := table.Metadata{
+		Name: v.Name,
+		Columns: generics.Map(allColumns, func(i int, v *ColumnSpecification) string {
+			
+			return v.Name
+		}),
+		PartKey: generics.Map(v.Partitioning, func(i int, v *PartitioningColumn) string {
+			return v.Column.Name
+		}),
+		SortKey: generics.Map(v.Clustering, func(i int, v *ClusteringColumn) string {
+			return v.Column.Name
+		}),
+	}
+
+	return table.New(md)
 }

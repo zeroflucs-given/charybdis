@@ -156,7 +156,7 @@ func (t *TableSpecification) Validate() error {
 	}
 
 	// Check index column reference consistency (indexed columns need to
-	// by in our column list)
+	// be in our column list)
 	for _, ixCol := range t.Indexes {
 		found := false
 		for _, col := range t.Columns {
