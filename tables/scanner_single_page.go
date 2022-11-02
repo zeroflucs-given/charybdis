@@ -12,7 +12,7 @@ func (g *SinglePageScanner[T]) Preallocate(cap int) {
 	g.items = make([]*T, 0, cap)
 }
 
-// OnPage is a PageHandlerFn that always keeps requesting more data
+// OnPage is a PageHandlerFn that stops after a single page
 func (g *SinglePageScanner[T]) OnPage(ctx context.Context, records []*T, pageState []byte) (bool, error) {
 	g.items = append(g.items, records...)
 	return false, ctx.Err()
