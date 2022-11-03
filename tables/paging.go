@@ -31,6 +31,11 @@ func (t *baseManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder
 			query = query.PageState(pageState)
 		}
 
+		// Check for any binding errors
+		if query.Err() != nil {
+			return query.Err()
+		}
+
 		iter := query.Iter()
 
 		records, updatedPageState, err := t.fetchOnePage(ctx, iter)
