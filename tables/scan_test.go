@@ -30,7 +30,7 @@ func TestScan(t *testing.T) {
 	// Act
 	scanCount := 0
 	recordCount := 0
-	errScan := manager.Scan(ctx, func(ctx context.Context, records []*Order, pageState []byte) (bool, error) {
+	errScan := manager.Scan(ctx, func(ctx context.Context, records []*Order, pageState []byte, newPageState []byte) (bool, error) {
 		scanCount++
 		recordCount += len(records)
 		return true, nil
@@ -66,7 +66,7 @@ func TestScanPaged(t *testing.T) {
 	// Act
 	scanCount := 0
 	recordCount := 0
-	errScan := manager.Scan(ctx, func(ctx context.Context, records []*Order, pageState []byte) (bool, error) {
+	errScan := manager.Scan(ctx, func(ctx context.Context, records []*Order, pageState []byte, newPageState []byte) (bool, error) {
 		scanCount++
 		recordCount += len(records)
 		return scanCount < 25, nil

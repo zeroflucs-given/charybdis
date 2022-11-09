@@ -9,7 +9,7 @@ import (
 // PageHandlerFn is a function used when querying a block of records from the table. If true is returned
 // the scan will continue advancing. The page state is an opaque value that can be passed using
 // WithPageState to resume a query later.
-type PageHandlerFn[T any] func(ctx context.Context, records []*T, pageState []byte) (bool, error)
+type PageHandlerFn[T any] func(ctx context.Context, records []*T, originalPagingState []byte, newPagingState []byte) (bool, error)
 
 // QueryBuilderFn is a function used to provide custom query instances to execute.
 type QueryBuilderFn func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx
@@ -47,7 +47,7 @@ func (t *baseManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder
 			break
 		}
 
-		keepGoing, errHandle := fn(ctx, records, pageState)
+		keepGoing, errHandle := fn(ctx, records, pageState, updatedPageState)
 		if errHandle != nil {
 			return errHandle
 		}

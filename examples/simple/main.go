@@ -43,7 +43,7 @@ func main() {
 
 	// Example Part 2 - Scan all records, removing them
 	log.Info("Scanning records to remove old ones")
-	errScan := manager.Scan(ctx, func(ctx context.Context, records []*Record, pageState []byte) (bool, error) {
+	errScan := manager.Scan(ctx, func(ctx context.Context, records []*Record, pageState []byte, newPageState []byte) (bool, error) {
 		log.With(
 			zap.Int("page_size", len(records))).
 			Info("Clearing page....")

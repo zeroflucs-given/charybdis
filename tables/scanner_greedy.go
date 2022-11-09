@@ -14,7 +14,7 @@ func (g *GreedyScanner[T]) Preallocate(cap int) {
 }
 
 // OnPage is a PageHandlerFn that always keeps requesting more data
-func (g *GreedyScanner[T]) OnPage(ctx context.Context, records []*T, pageState []byte) (bool, error) {
+func (g *GreedyScanner[T]) OnPage(ctx context.Context, records []*T, originalPagingState []byte, newPagingState []byte) (bool, error) {
 	g.items = append(g.items, records...)
 	return true, ctx.Err()
 }

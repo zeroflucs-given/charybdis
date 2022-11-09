@@ -131,7 +131,7 @@ func TestSelectByPartitionKey(t *testing.T) {
 	// Act
 	recordCount := 0
 	expectOrder := "sp-order-257"
-	errSelect := manager.SelectByPartitionKey(ctx, func(ctx context.Context, records []*OrderItem, pageState []byte) (bool, error) {
+	errSelect := manager.SelectByPartitionKey(ctx, func(ctx context.Context, records []*OrderItem, pageState []byte, newPageState []byte) (bool, error) {
 		recordCount += len(records)
 		for _, rec := range records {
 			if rec.OrderID != expectOrder {
@@ -175,7 +175,7 @@ func TestSelectByIndexedColumn(t *testing.T) {
 	// Act
 	recordCount := 0
 	expectItem := "ix-item-5"
-	errSelect := manager.SelectByIndexedColumn(ctx, func(ctx context.Context, records []*OrderItem, pageState []byte) (bool, error) {
+	errSelect := manager.SelectByIndexedColumn(ctx, func(ctx context.Context, records []*OrderItem, pageState []byte, newPageState []byte) (bool, error) {
 		recordCount += len(records)
 		for _, rec := range records {
 			if rec.ItemID != expectItem {
