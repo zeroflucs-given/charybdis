@@ -8,7 +8,7 @@ import (
 )
 
 // Upsert overwrites or inserts an object.
-func (t *tableManagerImpl[T]) Upsert(ctx context.Context, instance *T, opts ...InsertOption) error {
+func (t *tableManagerImpl[T]) Upsert(ctx context.Context, instance *T, opts ...UpdateOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/Upsert", t.TraceAttributes, func(ctx context.Context) error {
 		return t.upsertInternal(ctx, instance, opts...)
 	})
@@ -16,7 +16,7 @@ func (t *tableManagerImpl[T]) Upsert(ctx context.Context, instance *T, opts ...I
 
 // UpsertBulk upserts many objects in parallel, up to a given number. If the concurrency limit is not set,
 // then a default of DefaultBulkConcurrency is used.
-func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, concurrency int, opts ...InsertOption) error {
+func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, concurrency int, opts ...UpdateOption) error {
 	if concurrency <= 0 {
 		concurrency = DefaultBulkConcurrency
 	}
@@ -37,7 +37,7 @@ func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, co
 }
 
 // upsertInternal is a helper function that performs a single upsert
-func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, opts ...InsertOption) error {
+func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, opts ...UpdateOption) error {
 	// Pre-change hooks
 	errPre := t.runPreHooks(ctx, instance)
 	if errPre != nil {
@@ -45,17 +45,23 @@ func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, o
 	}
 
 	// Build our query
-	query := qb.Insert(t.qualifiedTableName).Columns(t.allColumnNames...)
+	query := qb.Update(t.qualifiedTableName).
+		Set(t.nonKeyColumns...).
+		Where(t.allKeyPredicates...)
+
+	additionalVals := map[string]interface{}{}
 
 	for _, opt := range opts {
-		query = opt.applyToInsertBuilder(query)
+		query = opt.applyToUpdateBuilder(query)
+		for k, v := range opt.getMapData() {
+			additionalVals[k] = v
+		}
 	}
 
 	stmt, params := query.ToCql()
 
 	err := t.Session.ContextQuery(ctx, stmt, params).
-		Consistency(t.writeConsistency).
-		BindStruct(instance).
+		BindStructMap(instance, additionalVals).
 		ExecRelease()
 
 	if err != nil {

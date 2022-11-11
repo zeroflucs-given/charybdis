@@ -11,7 +11,15 @@ import (
 // the same effect with an Upsert if you use the WithNotExist option.
 func (t *tableManagerImpl[T]) Insert(ctx context.Context, instance *T, opts ...InsertOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/Insert", t.TraceAttributes, func(ctx context.Context) error {
-		return t.insertInternal(ctx, instance, opts...)
+		return t.insertInternal(ctx, instance, true, opts...)
+	})
+}
+
+// InsertOrReplace inserts a single object or replaces if it already exists. This is effectively an upsert that
+// works for tables with no non-key columns.
+func (t *tableManagerImpl[T]) InsertOrReplace(ctx context.Context, instance *T, opts ...InsertOption) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/Insert", t.TraceAttributes, func(ctx context.Context) error {
+		return t.insertInternal(ctx, instance, false, opts...)
 	})
 }
 
@@ -29,7 +37,7 @@ func (t *tableManagerImpl[T]) InsertBulk(ctx context.Context, instances []*T, co
 		for _, v := range instances {
 			item := v
 			grp.Go(func() error {
-				return t.insertInternal(grpCtx, item, opts...)
+				return t.insertInternal(grpCtx, item, true, opts...)
 			})
 		}
 
@@ -38,15 +46,17 @@ func (t *tableManagerImpl[T]) InsertBulk(ctx context.Context, instances []*T, co
 }
 
 // insertInternal is a helper function that performs a single upsert
-func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, opts ...InsertOption) error {
+func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, enforceNotExists bool, opts ...InsertOption) error {
 	// Pre-change hooks
 	errPre := t.runPreHooks(ctx, instance)
 	if errPre != nil {
 		return errPre
 	}
 
-	// We must not exist
-	opts = append(opts, WithNotExists())
+	if enforceNotExists {
+		// We must not exist
+		opts = append(opts, WithNotExists())
+	}
 
 	// Build our query
 	query := qb.Insert(t.qualifiedTableName).Columns(t.allColumnNames...)
