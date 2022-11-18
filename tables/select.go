@@ -124,3 +124,20 @@ func (t *baseManagerImpl[T]) SelectByPartitionKey(ctx context.Context, fn PageHa
 		}, fn, opts...)
 	})
 }
+
+// SelectByPrimaryKey gets all records by primary key, including both partitioning and zero or more clustering keys
+func (t *baseManagerImpl[T]) SelectByPrimaryKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, primaryKeys ...interface{}) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByPrimaryKey", t.TraceAttributes, func(ctx context.Context) error {
+		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
+			// trim predicates list to match length of primary keys entered in case not all clustering keys have been specified
+			predicates := t.allKeyPredicates[:len(primaryKeys)]
+
+			stmt, params := qb.
+				Select(t.Table.Name()).Columns(t.allColumnNames...).
+				Where(predicates...).
+				ToCql()
+
+			return t.Session.ContextQuery(ctx, stmt, params).Bind(primaryKeys...)
+		}, fn, opts...)
+	})
+}

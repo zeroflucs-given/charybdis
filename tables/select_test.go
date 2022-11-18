@@ -146,6 +146,53 @@ func TestSelectByPartitionKey(t *testing.T) {
 	require.Equal(t, 10, recordCount, "Should have right number of records.")
 }
 
+func TestSelectByPrimaryKey(t *testing.T) {
+	// Test globals
+	ctx := context.Background()
+	manager, err := tables.NewTableManager[OrderItem](ctx,
+		tables.WithCluster(testClusterConfig),
+		tables.WithKeyspace(TestKeyspace),
+		tables.WithTableSpecification(OrderItemsTableSpec))
+	require.NoError(t, err, "Should not error starting up")
+
+	// Arrange
+	orders := 10
+	itemsPerOrder := 10
+	toInsert := make([]*OrderItem, 0, orders*itemsPerOrder)
+	for order := 0; order < orders; order++ {
+		for item := 0; item < itemsPerOrder; item++ {
+			toInsert = append(toInsert, &OrderItem{
+				OrderID:  fmt.Sprintf("sprim-order-%d", order),
+				ItemID:   fmt.Sprintf("sprim-item-%d", item),
+				Quantity: (order * item) % 27,
+			})
+		}
+	}
+	errInsert := manager.InsertBulk(ctx, toInsert, -1)
+	require.NoError(t, errInsert, "Should not error inserting")
+
+	// Act
+	recordCount := 0
+	expectOrder := "sprim-order-1"
+	expectItem := "sprim-item-1"
+	errSelect := manager.SelectByPrimaryKey(ctx, func(ctx context.Context, records []*OrderItem, pageState []byte, newPageState []byte) (bool, error) {
+		recordCount += len(records)
+		for _, rec := range records {
+			if rec.OrderID != expectOrder {
+				return false, fmt.Errorf("wrong order ID: %v", rec.OrderID)
+			}
+			if rec.ItemID != expectItem {
+				return false, fmt.Errorf("wrong item ID: %v", rec.ItemID)
+			}
+		}
+		return true, nil
+	}, nil, expectOrder, expectItem)
+
+	// Assert
+	require.NoError(t, errSelect, "Should not error selecting")
+	require.Equal(t, 1, recordCount, "Should have right number of records.")
+}
+
 // TestSelectByIndexedColumn checks we can get values by their indexed column
 func TestSelectByIndexedColumn(t *testing.T) {
 	// Test globals

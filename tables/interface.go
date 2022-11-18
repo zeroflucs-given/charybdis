@@ -59,6 +59,9 @@ type TableManager[T any] interface {
 	// SelectByPartitionKey gets all records from a partition
 	SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...interface{}) error
 
+	// SelectByPrimaryKey gets all records by partition key and any clustering keys provided
+	SelectByPrimaryKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, primaryKeys ...interface{}) error
+
 	// SelectByIndexedColumn gets all records matching an indexed column
 	SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue interface{}, opts ...QueryOption) error
 
@@ -112,6 +115,9 @@ type ViewManager[T any] interface {
 
 	// SelectByPartitionKey gets all records from a partition
 	SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...interface{}) error
+
+	// SelectByPrimaryKey gets all records from a partition
+	SelectByPrimaryKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, primaryKeys ...interface{}) error
 
 	// SelectByIndexedColumn gets all records matching an indexed column
 	SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue interface{}, opts ...QueryOption) error
