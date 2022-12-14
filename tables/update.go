@@ -24,16 +24,25 @@ func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, o
 	// Build our query
 	query := qb.Update(t.qualifiedTableName).
 		Set(t.nonKeyColumns...).
-		Where(t.allKeyPredicates...).
-		Existing()
+		Where(t.allKeyPredicates...)
 
 	additionalVals := map[string]interface{}{}
+	havePreconditions := false
 
 	for _, opt := range opts {
+		if opt.isPrecondition() {
+			havePreconditions = true
+		}
 		query = opt.applyToUpdateBuilder(query)
 		for k, v := range opt.getMapData() {
 			additionalVals[k] = v
 		}
+	}
+
+	// If we have no other preconditions, add an IF EXISTS check
+	if !havePreconditions {
+		query = query.
+			Existing()
 	}
 
 	stmt, params := query.ToCql()

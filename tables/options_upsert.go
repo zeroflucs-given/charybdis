@@ -7,8 +7,9 @@ import (
 )
 
 type upsertOption struct {
-	insertBuilderFn func(builder *qb.InsertBuilder) *qb.InsertBuilder
-	updateBuilderFn func(builder *qb.UpdateBuilder) *qb.UpdateBuilder
+	insertBuilderFn   func(builder *qb.InsertBuilder) *qb.InsertBuilder
+	updateBuilderFn   func(builder *qb.UpdateBuilder) *qb.UpdateBuilder
+	isOptPrecondition bool
 }
 
 // Apply applies the update optionInsertBuilder
@@ -27,6 +28,10 @@ func (u *upsertOption) applyToUpdateBuilder(builder *qb.UpdateBuilder) *qb.Updat
 	return u.updateBuilderFn(builder)
 }
 
+func (u *upsertOption) isPrecondition() bool {
+	return u.isOptPrecondition
+}
+
 func (u *upsertOption) getMapData() map[string]interface{} {
 	return nil
 }
@@ -40,5 +45,6 @@ func WithTTL(d time.Duration) UpsertOption {
 		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {
 			return builder.TTL(d)
 		},
+		isOptPrecondition: false,
 	}
 }

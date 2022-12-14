@@ -5,8 +5,8 @@ go build ./...
 go vet ./...
 
 pushd ./testing
-# docker-compose pull
-# docker-compose up -d
+docker-compose pull
+docker-compose up -d
 
 echo "Awaiting ScyllaDB: "
 while ! nc -z localhost 9042; do 

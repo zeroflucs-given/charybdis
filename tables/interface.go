@@ -126,6 +126,9 @@ type ViewManager[T any] interface {
 // InsertOption is an interface that describes options that can mutate an insert
 type InsertOption interface {
 	applyToInsertBuilder(builder *qb.InsertBuilder) *qb.InsertBuilder
+
+	// isPrecondition indicates if this option applies a precondition to the query
+	isPrecondition() bool
 }
 
 // QueryOption is an interface that describes options that can mutate a scan.
@@ -140,6 +143,9 @@ type UpdateOption interface {
 
 	// getMapData gets any additional key-values that the predicate requires
 	getMapData() map[string]interface{}
+
+	// isPrecondition indicates if this option applies a precondition to the query
+	isPrecondition() bool
 }
 
 // UpsertOption is an option that can be used for inserts or update

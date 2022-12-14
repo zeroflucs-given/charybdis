@@ -203,10 +203,13 @@ satisfied by the existing data in order for an operation to succeed. This allows
 complex conditions.
 
 ### Upsert
-Upserts are operations that can either update or update data. They're essentially an `update` that doesn't check
+Upserts are operations that can either insert or update data. They're essentially an `update` that doesn't check
 if the data already exists. This allows for fire-and-forget data writing, where you don't want to read existing
 data first.  This generally should be used in scenarios where the consequences of writing data over the top of 
 existing data has no material consequence and no secutity implications.
+
+WithSimpleIf and WithConditionalUpdate options should not be used with Upserts as this will prevent them falling 
+back to an insert if the row is not found.
 
 #### Upsert Option: WithTTL
 The `tables.WithTTL(duration)` option sets the TTL for all cells written in this operation. This option can

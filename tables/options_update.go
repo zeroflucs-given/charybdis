@@ -7,8 +7,9 @@ import (
 // updateOption is our internal type that implements the core of the updateOption
 // handling.
 type updateOption struct {
-	mapData         map[string]interface{}
-	updateBuilderFn func(builder *qb.UpdateBuilder) *qb.UpdateBuilder
+	mapData           map[string]interface{}
+	updateBuilderFn   func(builder *qb.UpdateBuilder) *qb.UpdateBuilder
+	isOptPrecondition bool
 }
 
 // Apply applies the update optionInsertBuilder
@@ -18,6 +19,10 @@ func (u *updateOption) applyToUpdateBuilder(builder *qb.UpdateBuilder) *qb.Updat
 
 func (u *updateOption) getMapData() map[string]interface{} {
 	return u.mapData
+}
+
+func (u *updateOption) isPrecondition() bool {
+	return u.isOptPrecondition
 }
 
 // WithSimpleIf allows for a LWT that does a simple value-based comparison on a single column
@@ -34,6 +39,7 @@ func WithSimpleIf(targetColumn string, val interface{}) UpdateOption {
 		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {
 			return builder.If(qb.EqNamed(targetColumn, simpleIfName))
 		},
+		isOptPrecondition: true,
 	}
 }
 
@@ -44,5 +50,6 @@ func WithConditionalUpdate(cmp qb.Cmp, payload map[string]interface{}) UpdateOpt
 		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {
 			return builder.If(cmp)
 		},
+		isOptPrecondition: true,
 	}
 }

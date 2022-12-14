@@ -5,12 +5,17 @@ import (
 )
 
 type insertOption struct {
-	insertBuilderFn func(builder *qb.InsertBuilder) *qb.InsertBuilder
+	insertBuilderFn   func(builder *qb.InsertBuilder) *qb.InsertBuilder
+	isOptPrecondition bool
 }
 
 // Apply applies the update optionInsertBuilder
 func (u *insertOption) applyToInsertBuilder(builder *qb.InsertBuilder) *qb.InsertBuilder {
 	return u.insertBuilderFn(builder)
+}
+
+func (u *insertOption) isPrecondition() bool {
+	return u.isOptPrecondition
 }
 
 // WithNotExists sets IF NOT EXISTS on the query to ensure an insert is a new record.
@@ -19,5 +24,6 @@ func WithNotExists() InsertOption {
 		insertBuilderFn: func(builder *qb.InsertBuilder) *qb.InsertBuilder {
 			return builder.Unique()
 		},
+		isOptPrecondition: false,
 	}
 }
