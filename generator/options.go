@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/charybdis/tables"
@@ -115,7 +114,7 @@ func WithSimpleKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGe
 }
 
 // WithNetworkAwareKeyspaceManagement creates a network aware keyspace
-func WithNetworkAwareKeyspaceManagement(log *zap.Logger, cluster *gocql.ClusterConfig, replicationFactors map[string]int32) tables.ManagerOption {
+func WithNetworkAwareKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGeneratorFn, replicationFactors map[string]int32) tables.ManagerOption {
 	if log == nil {
 		log = zap.NewNop()
 	}
@@ -126,7 +125,7 @@ func WithNetworkAwareKeyspaceManagement(log *zap.Logger, cluster *gocql.ClusterC
 	sort.Strings(datacentres)
 
 	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification) error {
-		sess, err := gocqlx.WrapSession(cluster.CreateSession())
+		sess, err := gocqlx.WrapSession(cluster().CreateSession())
 		if err != nil {
 			return fmt.Errorf("error keyspace management session: %w", err)
 		}
