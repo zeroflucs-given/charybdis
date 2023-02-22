@@ -1,15 +1,15 @@
 package projections
 
 import (
-	"github.com/gocql/gocql"
 	"github.com/zeroflucs-given/charybdis/metadata"
+	"github.com/zeroflucs-given/charybdis/utils"
 	"go.uber.org/zap"
 )
 
 // projectionManagerParams are the parameters we build for a projection manager
 type projectionManagerParams struct {
-	cluster              *gocql.ClusterConfig
-	ddlClusterConfig     *gocql.ClusterConfig
+	cluster              utils.ClusterConfigGeneratorFn
+	ddlClusterConfig     utils.ClusterConfigGeneratorFn
 	logger               *zap.Logger
 	keyspace             string
 	baseTable            *metadata.TableSpecification
@@ -59,7 +59,7 @@ func WithBaseTable(spec *metadata.TableSpecification) ProjectionManagerOption {
 }
 
 // WithCluster sets the cluster to use for the projection
-func WithCluster(cluster *gocql.ClusterConfig) ProjectionManagerOption {
+func WithCluster(cluster utils.ClusterConfigGeneratorFn) ProjectionManagerOption {
 	return &projectionManagerOptionImpl{
 		paramHook: func(params *projectionManagerParams) {
 			params.cluster = cluster
@@ -72,7 +72,7 @@ func WithCluster(cluster *gocql.ClusterConfig) ProjectionManagerOption {
 
 // WithDDLCluster sets the cluster config to use for executing DDL operations. If
 // the same cluster is used, the WithCluster operator will set both by default.
-func WithDDLCluster(cluster *gocql.ClusterConfig) ProjectionManagerOption {
+func WithDDLCluster(cluster utils.ClusterConfigGeneratorFn) ProjectionManagerOption {
 	return &projectionManagerOptionImpl{
 		paramHook: func(params *projectionManagerParams) {
 			params.ddlClusterConfig = cluster

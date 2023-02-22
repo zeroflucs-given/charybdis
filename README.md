@@ -137,7 +137,10 @@ You can alternatively omit the DDL management helpers, and specify a pre-built `
 	hosts := []string{"127.0.0.1:9042"}
 
 	ctx := context.TODO() // Replace with your app contexts
-	cluster := gocql.NewCluster(hosts...)
+	cluster := func() *gocql.Cluster {		// We do this to avoid re-using a cluster object
+		return gocql.NewCluster(hosts...)
+	}
+
 	log, _ := zap.NewDevelopment()
 
 	// Example Part 1 - Creating a table manager with automatic DDL management

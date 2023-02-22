@@ -6,17 +6,18 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/zeroflucs-given/charybdis/metadata"
+	"github.com/zeroflucs-given/charybdis/utils"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
 // WithCluster sets the cluster connection to use when working with the
 // manager instance
-func WithCluster(cluster *gocql.ClusterConfig) ManagerOption {
+func WithCluster(cluster utils.ClusterConfigGeneratorFn) ManagerOption {
 	return &tableManagerOption{
 		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
 			params.SessionFactory = func(keyspace string) (*gocql.Session, error) {
-				clusterVal := *cluster
+				clusterVal := cluster()
 				clusterVal.Keyspace = keyspace
 				return clusterVal.CreateSession()
 			}

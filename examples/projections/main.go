@@ -24,7 +24,10 @@ func main() {
 	hosts := []string{"127.0.0.1:9042"}
 
 	ctx := context.TODO() // Replace with your app contexts
-	cluster := gocql.NewCluster(hosts...)
+	cluster := func() *gocql.ClusterConfig {
+		return gocql.NewCluster(hosts...)
+	}
+
 	log, _ := zap.NewDevelopment()
 
 	// Example Part 1 - Creating a table manager with automatic DDL management

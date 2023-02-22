@@ -6,16 +6,21 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/zeroflucs-given/charybdis/metadata"
+	"github.com/zeroflucs-given/charybdis/utils"
 )
 
 // TestMain initializes our testing setup and installs any tables/keyspaces we use for testing.
 // It assumes absolute ownership of the keyspace charybdis_tests.
 func TestMain(m *testing.M) {
 	testHosts := []string{"localhost:9042"}
-	testClusterConfig = gocql.NewCluster(testHosts...)
+	testClusterConfig = func() *gocql.ClusterConfig {
+		return gocql.NewCluster(testHosts...)
+	}
+
+	instance := testClusterConfig()
 
 	// Create the test schema and tables
-	sess, err := gocqlx.WrapSession(gocql.NewSession(*testClusterConfig))
+	sess, err := gocqlx.WrapSession(gocql.NewSession(*instance))
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +46,7 @@ var testTableDeclarations = []string{
 	"CREATE MATERIALIZED VIEW charybdis_tests.item_orders AS SELECT * FROM charybdis_tests.order_items WHERE order_id IS NOT NULL AND item_id IS NOT NULL PRIMARY KEY((item_id), order_id) WITH CLUSTERING ORDER BY (order_id ASC)",
 }
 
-var testClusterConfig *gocql.ClusterConfig
+var testClusterConfig utils.ClusterConfigGeneratorFn
 
 // Orders table
 var orderColumns = []*metadata.ColumnSpecification{

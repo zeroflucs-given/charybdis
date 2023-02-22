@@ -10,13 +10,14 @@ import (
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/charybdis/tables"
+	"github.com/zeroflucs-given/charybdis/utils"
 	"github.com/zeroflucs-given/generics"
 	"go.uber.org/zap"
 )
 
 // WithAutomaticTableManagement automatically performs management of tables and structures on startup
 // when using a tables.TableManager, using the charybdis DDL generator.
-func WithAutomaticTableManagement(log *zap.Logger, cluster *gocql.ClusterConfig) tables.ManagerOption {
+func WithAutomaticTableManagement(log *zap.Logger, clusterFn utils.ClusterConfigGeneratorFn) tables.ManagerOption {
 	if log == nil {
 		log = zap.NewNop()
 	}
@@ -25,6 +26,8 @@ func WithAutomaticTableManagement(log *zap.Logger, cluster *gocql.ClusterConfig)
 		if view != nil {
 			return fmt.Errorf("should not have a view during startup: %q", view.Name)
 		}
+
+		cluster := clusterFn()
 
 		sess, err := gocqlx.WrapSession(cluster.CreateSession())
 		if err != nil {
@@ -52,7 +55,7 @@ func installTableFromDDL(ctx context.Context, logger *zap.Logger, sess gocqlx.Se
 
 // WithAutomaticViewManagement automatically performs management of views and structures on startup
 // when using a tables.ViewManager, using the charybdis DDL generator.
-func WithAutomaticViewManagement(log *zap.Logger, cluster *gocql.ClusterConfig) tables.ManagerOption {
+func WithAutomaticViewManagement(log *zap.Logger, cluster utils.ClusterConfigGeneratorFn) tables.ManagerOption {
 	if log == nil {
 		log = zap.NewNop()
 	}
@@ -62,7 +65,7 @@ func WithAutomaticViewManagement(log *zap.Logger, cluster *gocql.ClusterConfig) 
 			return fmt.Errorf("should have a view during startup for table %q", table.Name)
 		}
 
-		sess, err := gocqlx.WrapSession(cluster.CreateSession())
+		sess, err := gocqlx.WrapSession(cluster().CreateSession())
 		if err != nil {
 			return fmt.Errorf("error creating table management session: %w", err)
 		}
@@ -88,13 +91,13 @@ func installViewFromDDL(ctx context.Context, logger *zap.Logger, sess gocqlx.Ses
 
 // WithSimpleKeyspaceManagement does a 'CREATE KEYSPACE' command at the startup, with a default replication
 // factor. This should only be used for trivial scenarios.
-func WithSimpleKeyspaceManagement(log *zap.Logger, cluster *gocql.ClusterConfig, replicationFactor int) tables.ManagerOption {
+func WithSimpleKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGeneratorFn, replicationFactor int) tables.ManagerOption {
 	if log == nil {
 		log = zap.NewNop()
 	}
 
 	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification) error {
-		sess, err := gocqlx.WrapSession(cluster.CreateSession())
+		sess, err := gocqlx.WrapSession(cluster().CreateSession())
 		if err != nil {
 			return fmt.Errorf("error keyspace management session: %w", err)
 		}
