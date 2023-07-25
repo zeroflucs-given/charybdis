@@ -1,6 +1,8 @@
 package tables
 
 import (
+	"time"
+
 	"github.com/gocql/gocql"
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"go.opentelemetry.io/otel/trace"
@@ -17,6 +19,7 @@ type tableManagerParameters struct {
 	ViewSpec         *metadata.ViewSpecification
 	ReadConsistency  gocql.Consistency
 	WriteConsistency gocql.Consistency
+	TTL              time.Duration
 }
 
 type SessionFactory func(keyspace string) (*gocql.Session, error)

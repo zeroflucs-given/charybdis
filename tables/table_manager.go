@@ -25,9 +25,19 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 		}
 	}
 
+	extraOps := []metadata.DDLOperation{}
+
+	if params.TTL.Seconds() != 0 && params.TableSpec != nil {
+		extraOps = append(extraOps, metadata.DDLOperation{
+			Description:  "Add default TTL if non 0",
+			Command:      fmt.Sprintf("ALTER TABLE %s WITH default_time_to_live = %v;", params.TableSpec.Name, params.TTL.Seconds()),
+			IgnoreErrors: []string{},
+		})
+	}
+
 	// Execute hooks
 	for _, opt := range options {
-		err := opt.onStart(ctx, params.Keyspace, params.TableSpec, nil)
+		err := opt.onStart(ctx, params.Keyspace, params.TableSpec, nil, extraOps...)
 		if err != nil {
 			return nil, fmt.Errorf("error running table manager start hooks: %w", err)
 		}
