@@ -10,7 +10,7 @@ import (
 )
 
 // CreateDDLFromTableSpecification creates the DDL to create and extend a table from it's table specification
-func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecification) ([]DDLOperation, error) {
+func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecification) ([]metadata.DDLOperation, error) {
 	// Validate input
 	if keyspace == "" || spec == nil {
 		return nil, ErrInvalidInput
@@ -21,7 +21,7 @@ func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecif
 		return nil, fmt.Errorf("error validating table spec: %w", errSpec)
 	}
 
-	var commands []DDLOperation
+	var commands []metadata.DDLOperation
 
 	// Create the shell of the table
 	initialCreate := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %v.%v (%v, PRIMARY KEY(%v))",
@@ -34,7 +34,7 @@ func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecif
 		}), ", "),
 		getKeySpec(spec.Partitioning, spec.Clustering),
 	) + getClusteringSuffix(spec.Clustering)
-	commands = append(commands, DDLOperation{
+	commands = append(commands, metadata.DDLOperation{
 		Description: fmt.Sprintf("Create the table %q with columns relating to the key.", spec.Name),
 		Command:     initialCreate,
 	})
@@ -49,7 +49,7 @@ func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecif
 			spec.Name,
 			column.Name,
 			column.CQLType)
-		commands = append(commands, DDLOperation{
+		commands = append(commands, metadata.DDLOperation{
 			Description:  fmt.Sprintf("Extend the table %q with the column %q if needed.", spec.Name, column.Name),
 			Command:      addColumnStatement,
 			IgnoreErrors: []string{MessageColumnExists},
@@ -66,7 +66,7 @@ func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecif
 			keyspace,
 			spec.Name,
 			col.Name)
-		commands = append(commands, DDLOperation{
+		commands = append(commands, metadata.DDLOperation{
 			Description: fmt.Sprintf("Create an index called %q on the table %v for column %q", key, spec.Name, col.Name),
 			Command:     createIndexStatement,
 		})

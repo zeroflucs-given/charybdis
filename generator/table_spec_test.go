@@ -63,7 +63,7 @@ func TestGenerateTableDDL(t *testing.T) {
 	ddl, errDDL := generator.CreateDDLFromTableSpecification("test_keyspace", tableSpec)
 
 	// Assert
-	expected := []generator.DDLOperation{
+	expected := []metadata.DDLOperation{
 		{
 			Description: `Create the table "email_changes" with columns relating to the key.`,
 			Command:     "CREATE TABLE test_keyspace.email_changes (user_id VARCHAR, change_time TIMESTAMP) WITH CLUSTERING ORDER BY (change_time DESC)",
@@ -110,7 +110,7 @@ func TestGenerateTableDDLNoClustering(t *testing.T) {
 	ddl, errDDL := generator.CreateDDLFromTableSpecification("test_keyspace", tableSpec)
 
 	// Assert
-	expected := []generator.DDLOperation{
+	expected := []metadata.DDLOperation{
 		{
 			Description: `Create the table "email_changes" with columns relating to the key.`,
 			Command:     "CREATE TABLE test_keyspace.email_changes (user_id VARCHAR)",

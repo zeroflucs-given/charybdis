@@ -64,6 +64,10 @@ func WithDefaultTTL(d time.Duration) ManagerOption {
 	return &tableManagerOption{
 		insertOpts: []InsertOption{ttlOpt},
 		updateOpts: []UpdateOption{ttlOpt},
+		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
+			params.TTL = d
+			return nil
+		},
 	}
 }
 
@@ -132,7 +136,7 @@ func WithSpecMutator(mutator SpecMutator) ManagerOption {
 type tableParameterMutator func(ctx context.Context, params *tableManagerParameters) error
 
 // TableManagerStartupFn is a startup function called before the table-manager is deemed ready to use.
-type TableManagerStartupFn func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification) error
+type TableManagerStartupFn func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error
 
 type tableManagerOption struct {
 	parametersHook tableParameterMutator
@@ -151,12 +155,12 @@ func (t *tableManagerOption) mutateParameters(ctx context.Context, params *table
 	return t.parametersHook(ctx, params)
 }
 
-func (t *tableManagerOption) onStart(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification) error {
+func (t *tableManagerOption) onStart(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error {
 	if t.startHook == nil {
 		return nil
 	}
 
-	return t.startHook(ctx, keyspace, table, view)
+	return t.startHook(ctx, keyspace, table, view, extraOps...)
 }
 
 func (t tableManagerOption) insertOptions() []InsertOption {

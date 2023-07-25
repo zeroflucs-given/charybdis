@@ -21,7 +21,7 @@ func WithAutomaticTableManagement(log *zap.Logger, clusterFn utils.ClusterConfig
 		log = zap.NewNop()
 	}
 
-	return tables.WithStartupFn(func(ctx context.Context, keyspace string, spec *metadata.TableSpecification, view *metadata.ViewSpecification) error {
+	return tables.WithStartupFn(func(ctx context.Context, keyspace string, spec *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error {
 		if view != nil {
 			return fmt.Errorf("should not have a view during startup: %q", view.Name)
 		}
@@ -40,7 +40,7 @@ func WithAutomaticTableManagement(log *zap.Logger, clusterFn utils.ClusterConfig
 
 // installTableFromDDL performs the underlying installation of the table, including progressively adding
 // any new columns.
-func installTableFromDDL(ctx context.Context, logger *zap.Logger, sess gocqlx.Session, keyspace string, spec *metadata.TableSpecification) error {
+func installTableFromDDL(ctx context.Context, logger *zap.Logger, sess gocqlx.Session, keyspace string, spec *metadata.TableSpecification, extraOps ...metadata.DDLOperation) error {
 	logger.Info("Starting table installation")
 	defer logger.Info("Finished table installation")
 
@@ -48,6 +48,8 @@ func installTableFromDDL(ctx context.Context, logger *zap.Logger, sess gocqlx.Se
 	if err != nil {
 		return fmt.Errorf("error creating table DDL: %w", err)
 	}
+
+	statements = append(statements, extraOps...)
 
 	return installDLL(ctx, logger, sess, statements)
 }
@@ -59,7 +61,7 @@ func WithAutomaticViewManagement(log *zap.Logger, cluster utils.ClusterConfigGen
 		log = zap.NewNop()
 	}
 
-	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification) error {
+	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error {
 		if view == nil {
 			return fmt.Errorf("should have a view during startup for table %q", table.Name)
 		}
@@ -95,7 +97,7 @@ func WithSimpleKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGe
 		log = zap.NewNop()
 	}
 
-	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification) error {
+	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error {
 		sess, err := gocqlx.WrapSession(cluster().CreateSession())
 		if err != nil {
 			return fmt.Errorf("error keyspace management session: %w", err)
@@ -124,7 +126,7 @@ func WithNetworkAwareKeyspaceManagement(log *zap.Logger, cluster utils.ClusterCo
 	})
 	sort.Strings(datacentres)
 
-	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification) error {
+	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error {
 		sess, err := gocqlx.WrapSession(cluster().CreateSession())
 		if err != nil {
 			return fmt.Errorf("error keyspace management session: %w", err)
@@ -142,7 +144,7 @@ func WithNetworkAwareKeyspaceManagement(log *zap.Logger, cluster utils.ClusterCo
 	})
 }
 
-func installDLL(ctx context.Context, logger *zap.Logger, sess gocqlx.Session, statements []DDLOperation) error {
+func installDLL(ctx context.Context, logger *zap.Logger, sess gocqlx.Session, statements []metadata.DDLOperation) error {
 outer:
 	for _, statement := range statements {
 		logger.With(zap.String("query", statement.Command)).Info(statement.Description)

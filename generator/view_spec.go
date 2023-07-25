@@ -9,7 +9,7 @@ import (
 )
 
 // CreateDDLFromViewSpecification creates the DDL to create a view from its spec
-func CreateDDLFromViewSpecification(keyspace string, spec *metadata.ViewSpecification) ([]DDLOperation, error) {
+func CreateDDLFromViewSpecification(keyspace string, spec *metadata.ViewSpecification) ([]metadata.DDLOperation, error) {
 	// Validate input
 	if keyspace == "" || spec == nil {
 		return nil, ErrInvalidInput
@@ -32,7 +32,7 @@ func CreateDDLFromViewSpecification(keyspace string, spec *metadata.ViewSpecific
 			return fmt.Sprintf("%v IS NOT NULL", c.Name)
 		})
 
-	var commands []DDLOperation
+	var commands []metadata.DDLOperation
 
 	// Create the shell of the table
 	initialCreate := fmt.Sprintf("CREATE MATERIALIZED VIEW IF NOT EXISTS %v.%v AS SELECT * FROM %v.%v WHERE %v PRIMARY KEY (%v) %v",
@@ -45,7 +45,7 @@ func CreateDDLFromViewSpecification(keyspace string, spec *metadata.ViewSpecific
 		getClusteringSuffix(spec.Clustering),
 	)
 
-	commands = append(commands, DDLOperation{
+	commands = append(commands, metadata.DDLOperation{
 		Description:  fmt.Sprintf("Create the view %q.", spec.Name),
 		Command:      initialCreate,
 		IgnoreErrors: []string{},
