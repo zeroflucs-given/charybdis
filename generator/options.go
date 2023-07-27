@@ -34,7 +34,7 @@ func WithAutomaticTableManagement(log *zap.Logger, clusterFn utils.ClusterConfig
 		}
 		defer sess.Close()
 
-		return installTableFromDDL(ctx, log, sess, keyspace, spec)
+		return installTableFromDDL(ctx, log, sess, keyspace, spec, extraOps...)
 	})
 }
 
