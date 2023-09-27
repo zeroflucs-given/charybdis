@@ -10,11 +10,16 @@ import (
 )
 
 // doWithTracing is a wrapper function that adds tracing, error handling and some other elements.
-func doWithTracing(ctx context.Context, tracer trace.Tracer, spanName string, traceAttributes []attribute.KeyValue, execute func(context.Context) error) error {
-	// Perform tracing
-	tracedCtx, span := tracer.Start(ctx, spanName)
-	span.SetAttributes(traceAttributes...)
-	defer span.End()
+func doWithTracing(ctx context.Context, tracer trace.Tracer, spanName string, traceAttributes []attribute.KeyValue, doTracing bool, execute func(context.Context) error) error {
+	tracedCtx := ctx
+	var span trace.Span
+
+	if doTracing {
+		// Perform tracing
+		tracedCtx, span = tracer.Start(ctx, spanName)
+		span.SetAttributes(traceAttributes...)
+		defer span.End()
+	}
 
 	// Execute the underlying operation
 	err := execute(tracedCtx)
@@ -24,7 +29,9 @@ func doWithTracing(ctx context.Context, tracer trace.Tracer, spanName string, tr
 	if err == gocql.ErrNotFound {
 		return nil
 	} else if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		if doTracing {
+			span.SetStatus(codes.Error, err.Error())
+		}
 		return err
 	}
 
@@ -32,13 +39,17 @@ func doWithTracing(ctx context.Context, tracer trace.Tracer, spanName string, tr
 }
 
 // returnWithTracing is a wrapper function that adds tracing, error handling and some other elements.
-func returnWithTracing[TResult any](ctx context.Context, tracer trace.Tracer, spanName string, traceAttributes []attribute.KeyValue, execute func(context.Context) (TResult, error)) (TResult, error) {
+func returnWithTracing[TResult any](ctx context.Context, tracer trace.Tracer, spanName string, traceAttributes []attribute.KeyValue, doTracing bool, execute func(context.Context) (TResult, error)) (TResult, error) {
 	var dflt TResult
+	tracedCtx := ctx
+	var span trace.Span
 
-	// Perform tracing
-	tracedCtx, span := tracer.Start(ctx, spanName)
-	span.SetAttributes(traceAttributes...)
-	defer span.End()
+	if doTracing {
+		// Perform tracing
+		tracedCtx, span = tracer.Start(ctx, spanName)
+		span.SetAttributes(traceAttributes...)
+		defer span.End()
+	}
 
 	// Execute the underlying operation
 	result, err := execute(tracedCtx)
@@ -48,7 +59,9 @@ func returnWithTracing[TResult any](ctx context.Context, tracer trace.Tracer, sp
 	if err == gocql.ErrNotFound {
 		return dflt, nil
 	} else if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		if doTracing {
+			span.SetStatus(codes.Error, err.Error())
+		}
 		return dflt, err
 	}
 

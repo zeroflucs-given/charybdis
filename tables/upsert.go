@@ -9,7 +9,7 @@ import (
 
 // Upsert overwrites or inserts an object.
 func (t *tableManagerImpl[T]) Upsert(ctx context.Context, instance *T, opts ...UpdateOption) error {
-	return doWithTracing(ctx, t.Tracer, t.Name+"/Upsert", t.TraceAttributes, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/Upsert", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.upsertInternal(ctx, instance, opts...)
 	})
 }
@@ -21,7 +21,7 @@ func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, co
 		concurrency = DefaultBulkConcurrency
 	}
 
-	return doWithTracing(ctx, t.Tracer, t.Name+"/UpsertBulk", t.TraceAttributes, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/UpsertBulk", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		grp, grpCtx := errgroup.WithContext(ctx)
 		grp.SetLimit(concurrency)
 

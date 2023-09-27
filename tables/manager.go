@@ -17,6 +17,7 @@ type baseManagerImpl[T any] struct {
 	Session         gocqlx.Session       // Session
 	Logger          *zap.Logger          // Logger
 	Tracer          trace.Tracer         // OpenTelemetry tracer
+	DoTracing       bool                 // Do we want to add tracing to operations
 	TraceAttributes []attribute.KeyValue // Common trace attributes
 	Table           *table.Table         // Table helper
 	TableMetadata   table.Metadata       // Table metadata

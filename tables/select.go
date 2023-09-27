@@ -11,7 +11,7 @@ import (
 // GetByPartitionKey gets the first record from a partition. If there are multiple records, the
 // behaviour is to return the first record by clustering order.
 func (t *baseManagerImpl[T]) GetByPartitionKey(ctx context.Context, partitionKeys ...interface{}) (*T, error) {
-	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByPartitionKey", t.TraceAttributes, func(ctx context.Context) (*T, error) {
+	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByPartitionKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		stmt, params := qb.
 			Select(t.Table.Name()).Columns(t.allColumnNames...).
 			Where(t.partitionKeyPredicates...).
@@ -28,7 +28,7 @@ func (t *baseManagerImpl[T]) GetByPartitionKey(ctx context.Context, partitionKey
 
 // GetByPrimaryKey gets a record by primary key, including both partitioning and any clustering keys
 func (t *baseManagerImpl[T]) GetByPrimaryKey(ctx context.Context, primaryKeys ...interface{}) (*T, error) {
-	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByPrimaryKey", t.TraceAttributes, func(ctx context.Context) (*T, error) {
+	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByPrimaryKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		stmt, params := qb.
 			Select(t.Table.Name()).Columns(t.allColumnNames...).
 			Where(t.allKeyPredicates...).
@@ -45,7 +45,7 @@ func (t *baseManagerImpl[T]) GetByPrimaryKey(ctx context.Context, primaryKeys ..
 
 // GetByExample gets a single record, binding by example object with the key fields all set
 func (t *baseManagerImpl[T]) GetByExample(ctx context.Context, example *T) (*T, error) {
-	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByExample", t.TraceAttributes, func(ctx context.Context) (*T, error) {
+	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByExample", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		stmt, params := qb.
 			Select(t.Table.Name()).Columns(t.allColumnNames...).
 			Where(t.allKeyPredicates...).
@@ -62,7 +62,7 @@ func (t *baseManagerImpl[T]) GetByExample(ctx context.Context, example *T) (*T, 
 
 // GetByIndexedColumn gets the first record matching an index
 func (t *baseManagerImpl[T]) GetByIndexedColumn(ctx context.Context, columnName string, value interface{}, opts ...QueryOption) (*T, error) {
-	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByIndexedColumn", t.TraceAttributes, func(ctx context.Context) (*T, error) {
+	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByIndexedColumn", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		var target T
 
 		stmt, params := qb.
@@ -95,14 +95,14 @@ func (t *baseManagerImpl[T]) GetByIndexedColumn(ctx context.Context, columnName 
 
 // SelectByCustomQuery gets all records by a custom query in a paged fashion
 func (t *baseManagerImpl[T]) SelectByCustomQuery(ctx context.Context, queryBuilder QueryBuilderFn, pagingFn PageHandlerFn[T], opts ...QueryOption) error {
-	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByCustomQuery", t.TraceAttributes, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByCustomQuery", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.pageQueryInternal(ctx, queryBuilder, pagingFn, opts...)
 	})
 }
 
 // SelectByIndexedColumn selects all records by an indexed column
 func (t *baseManagerImpl[T]) SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue interface{}, opts ...QueryOption) error {
-	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByIndexedColumn", t.TraceAttributes, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByIndexedColumn", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			stmt, params := qb.
 				Select(t.Table.Name()).
@@ -117,7 +117,7 @@ func (t *baseManagerImpl[T]) SelectByIndexedColumn(ctx context.Context, fn PageH
 
 // SelectByPartitionKey gets all records from a partition
 func (t *baseManagerImpl[T]) SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...interface{}) error {
-	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByPartitionKey", t.TraceAttributes, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByPartitionKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			return t.Table.
 				SelectQueryContext(ctx, sess, t.allColumnNames...).Bind(partitionKeys...)
@@ -127,7 +127,7 @@ func (t *baseManagerImpl[T]) SelectByPartitionKey(ctx context.Context, fn PageHa
 
 // SelectByPrimaryKey gets all records by primary key, including both partitioning and zero or more clustering keys
 func (t *baseManagerImpl[T]) SelectByPrimaryKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, primaryKeys ...interface{}) error {
-	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByPrimaryKey", t.TraceAttributes, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByPrimaryKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			// trim predicates list to match length of primary keys entered in case not all clustering keys have been specified
 			predicates := t.allKeyPredicates[:len(primaryKeys)]

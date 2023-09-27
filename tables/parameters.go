@@ -15,6 +15,7 @@ type tableManagerParameters struct {
 	Logger           *zap.Logger
 	SessionFactory   SessionFactory
 	TracerProvider   trace.TracerProvider
+	DoTracing        bool
 	TableSpec        *metadata.TableSpecification
 	ViewSpec         *metadata.ViewSpecification
 	ReadConsistency  gocql.Consistency

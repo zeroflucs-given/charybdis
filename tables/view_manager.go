@@ -60,6 +60,7 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 				zap.String("keyspace", params.Keyspace),
 				zap.String("view", params.ViewSpec.Name)),
 			Tracer: otel.Tracer(TracingModuleName),
+			DoTracing: params.DoTracing,
 
 			// Metadata
 			Name:          params.ViewSpec.Name,

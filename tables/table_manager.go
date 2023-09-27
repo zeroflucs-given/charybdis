@@ -64,6 +64,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 				zap.String("keyspace", params.Keyspace),
 				zap.String("table", params.TableSpec.Name)),
 			Tracer: otel.Tracer(TracingModuleName),
+			DoTracing: params.DoTracing,
 
 			// Metadata
 			Name:          params.TableSpec.Name,

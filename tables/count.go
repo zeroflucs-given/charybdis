@@ -9,7 +9,7 @@ import (
 
 // Count the number of records in the table.
 func (t *baseManagerImpl[T]) Count(ctx context.Context) (int64, error) {
-	return returnWithTracing(ctx, t.Tracer, t.Name+"/Count", t.TraceAttributes, func(ctx context.Context) (int64, error) {
+	return returnWithTracing(ctx, t.Tracer, t.Name+"/Count", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (int64, error) {
 		return t.countInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			stmt, params := qb.
 				Select(t.Table.Name()).
@@ -24,7 +24,7 @@ func (t *baseManagerImpl[T]) Count(ctx context.Context) (int64, error) {
 
 // CountByPartitionKey gets the number of records in the partition.
 func (t *baseManagerImpl[T]) CountByPartitionKey(ctx context.Context, partitionKeys ...interface{}) (int64, error) {
-	return returnWithTracing(ctx, t.Tracer, t.Name+"/CountByPartitionKey", t.TraceAttributes, func(ctx context.Context) (int64, error) {
+	return returnWithTracing(ctx, t.Tracer, t.Name+"/CountByPartitionKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (int64, error) {
 		return t.countInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			stmt, params := qb.
 				Select(t.Table.Name()).
@@ -41,7 +41,7 @@ func (t *baseManagerImpl[T]) CountByPartitionKey(ctx context.Context, partitionK
 
 // CountByCustomQuery gets the number of records in a custom query.
 func (t *baseManagerImpl[T]) CountByCustomQuery(ctx context.Context, queryBuilder QueryBuilderFn) (int64, error) {
-	return returnWithTracing(ctx, t.Tracer, t.Name+"/CountByCustomQuery", t.TraceAttributes, func(ctx context.Context) (int64, error) {
+	return returnWithTracing(ctx, t.Tracer, t.Name+"/CountByCustomQuery", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (int64, error) {
 		return t.countInternal(ctx, queryBuilder)
 	})
 }

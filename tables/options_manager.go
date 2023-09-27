@@ -51,6 +51,7 @@ func WithTraceProvider(provider trace.TracerProvider) ManagerOption {
 	return &tableManagerOption{
 		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
 			params.TracerProvider = provider
+			params.DoTracing = true
 			return nil
 		},
 	}
