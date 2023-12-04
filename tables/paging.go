@@ -25,6 +25,9 @@ func (t *baseManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder
 
 		// Apply query options that can override any of the above
 		for _, opt := range opts {
+			if opt == nil {
+				continue
+			}
 			query = opt.applyToQuery(query)
 		}
 		if pageState != nil {
