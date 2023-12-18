@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/charybdis/tables"
@@ -44,7 +45,17 @@ func installTableFromDDL(ctx context.Context, logger *zap.Logger, sess gocqlx.Se
 	logger.Info("Starting table installation")
 	defer logger.Info("Finished table installation")
 
-	statements, err := CreateDDLFromTableSpecification(keyspace, spec)
+	if spec == nil {
+		return fmt.Errorf("invalid table spec")
+	}
+
+	// Get the existing state of the keyspace
+	existing, errDef := DescribeTableMetadata(sess, keyspace, spec.Name)
+	if errDef != nil {
+		return fmt.Errorf("error reading table metadata: %w", errDef)
+	}
+
+	statements, err := CreateDDLFromTableSpecification(keyspace, spec, existing)
 	if err != nil {
 		return fmt.Errorf("error creating table DDL: %w", err)
 	}
@@ -82,7 +93,17 @@ func installViewFromDDL(ctx context.Context, logger *zap.Logger, sess gocqlx.Ses
 	logger.Info("Starting view installation")
 	defer logger.Info("Finished view installation")
 
-	statements, err := CreateDDLFromViewSpecification(keyspace, spec)
+	if spec == nil {
+		return fmt.Errorf("invalid view spec")
+	}
+
+	// Get the existing state of the keyspace
+	existing, errDef := DescribeViewMetadata(sess, keyspace, spec.Name)
+	if errDef != nil {
+		return fmt.Errorf("error reading view metadata: %w", errDef)
+	}
+
+	statements, err := CreateDDLFromViewSpecification(keyspace, spec, existing)
 	if err != nil {
 		return fmt.Errorf("error creating view DDL: %w", err)
 	}
@@ -103,6 +124,14 @@ func WithSimpleKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGe
 			return fmt.Errorf("error keyspace management session: %w", err)
 		}
 		defer sess.Close()
+
+		keyspaceMetadata, errMetadata := DescribeKeyspaceMetadata(sess, keyspace)
+		if errMetadata != nil {
+			return fmt.Errorf("error reading existing keyspace metadata: %w", errMetadata)
+		}
+		if keyspaceMetadata != nil {
+			return nil // Keyspace already exists
+		}
 
 		stmt := fmt.Sprintf(`CREATE KEYSPACE IF NOT EXISTS  %s WITH replication = {
 			'class' : 'SimpleStrategy',
@@ -132,6 +161,14 @@ func WithNetworkAwareKeyspaceManagement(log *zap.Logger, cluster utils.ClusterCo
 			return fmt.Errorf("error keyspace management session: %w", err)
 		}
 		defer sess.Close()
+
+		keyspaceMetadata, errMetadata := DescribeKeyspaceMetadata(sess, keyspace)
+		if errMetadata != nil {
+			return fmt.Errorf("error reading existing keyspace metadata: %w", errMetadata)
+		}
+		if keyspaceMetadata != nil {
+			return nil // Keyspace already exists
+		}
 
 		stmt := fmt.Sprintf(`CREATE KEYSPACE IF NOT EXISTS  %s WITH replication = {
 			'class' : 'NetworkTopologyStrategy',
@@ -167,4 +204,63 @@ outer:
 	}
 
 	return nil
+}
+
+type tableMetadata struct {
+	Table   *gocql.TableMetadata
+	Indexes map[string]*gocql.IndexMetadata
+}
+
+// DescribeTableMetadata reads the schema of a table in a given keyspace schema from the database
+func DescribeTableMetadata(sess gocqlx.Session, keyspace string, tableName string) (*tableMetadata, error) {
+
+	keyspaceMetadata, errDef := sess.KeyspaceMetadata(keyspace)
+	if errDef == gocql.ErrKeyspaceDoesNotExist {
+		return nil, nil
+	} else if errDef != nil {
+		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
+	}
+	var table *gocql.TableMetadata
+	if keyspaceMetadata.Tables != nil {
+		table = keyspaceMetadata.Tables[tableName]
+	}
+
+	indexMetadata := map[string]*gocql.IndexMetadata{}
+	if keyspaceMetadata.Indexes != nil {
+		for iName, i := range keyspaceMetadata.Indexes {
+			if i.TableName == tableName {
+				indexMetadata[iName] = i
+			}
+		}
+	}
+
+	return &tableMetadata{
+		Table:   table,
+		Indexes: indexMetadata,
+	}, nil
+}
+
+// DescribeViewMetadata reads the schema of a view in a given keyspace schema from the database
+func DescribeViewMetadata(sess gocqlx.Session, keyspace string, viewName string) (*gocql.ViewMetadata, error) {
+	metadata, errDef := sess.KeyspaceMetadata(keyspace)
+	if errDef == gocql.ErrKeyspaceDoesNotExist {
+		return nil, nil
+	} else if errDef != nil {
+		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
+	}
+	if metadata.Views != nil {
+		return metadata.Views[viewName], nil
+	}
+	return nil, nil
+}
+
+// DescribeKeyspaceMetadata reads the schema of a keyspace from the database
+func DescribeKeyspaceMetadata(sess gocqlx.Session, keyspace string) (*gocql.KeyspaceMetadata, error) {
+	metadata, errDef := sess.KeyspaceMetadata(keyspace)
+	if errDef == gocql.ErrKeyspaceDoesNotExist {
+		return nil, nil
+	} else if errDef != nil {
+		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
+	}
+	return metadata, nil
 }

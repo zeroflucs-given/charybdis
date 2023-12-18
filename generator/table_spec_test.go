@@ -13,7 +13,7 @@ func TestGenerateTableDDLRequiresSpec(t *testing.T) {
 	var spec *metadata.TableSpecification
 
 	// Act
-	ddl, err := generator.CreateDDLFromTableSpecification("test_keyspace", spec)
+	ddl, err := generator.CreateDDLFromTableSpecification("test_keyspace", spec, nil)
 
 	// Assert
 	require.Nil(t, ddl, "Should not get any DDL back")
@@ -60,7 +60,7 @@ func TestGenerateTableDDL(t *testing.T) {
 	}
 
 	// Act
-	ddl, errDDL := generator.CreateDDLFromTableSpecification("test_keyspace", tableSpec)
+	ddl, errDDL := generator.CreateDDLFromTableSpecification("test_keyspace", tableSpec, nil)
 
 	// Assert
 	expected := []metadata.DDLOperation{
@@ -107,7 +107,7 @@ func TestGenerateTableDDLNoClustering(t *testing.T) {
 	}
 
 	// Act
-	ddl, errDDL := generator.CreateDDLFromTableSpecification("test_keyspace", tableSpec)
+	ddl, errDDL := generator.CreateDDLFromTableSpecification("test_keyspace", tableSpec, nil)
 
 	// Assert
 	expected := []metadata.DDLOperation{
@@ -116,7 +116,7 @@ func TestGenerateTableDDLNoClustering(t *testing.T) {
 			Command:     "CREATE TABLE test_keyspace.email_changes (user_id VARCHAR)",
 		},
 		{
-			Description: `Extend the table "email_changes" with the column "email_address" if needed.`,
+			Description: `Extend the table "email_changes2" with the column "email_address" if needed.`,
 			Command:     "ALTER TABLE test_keyspace.email_changes ADD email_address varchar DESC",
 			IgnoreErrors: []string{
 				generator.MessageColumnExists,
