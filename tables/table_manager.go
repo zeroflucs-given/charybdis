@@ -30,7 +30,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 	if params.TTL.Seconds() != 0 && params.TableSpec != nil {
 		extraOps = append(extraOps, metadata.DDLOperation{
 			Description:  "Add default TTL if non 0",
-			Command:      fmt.Sprintf("ALTER TABLE %s.%s WITH default_time_to_live = %v;", params.Keyspace, params.TableSpec.Name, params.TTL.Seconds()),
+			Command:      fmt.Sprintf("ALTER TABLE %s.%s WITH default_time_to_live = %v;", params.Keyspace, params.TableSpec.Name, int64(params.TTL.Seconds())),
 			IgnoreErrors: []string{},
 		})
 	}
@@ -63,7 +63,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 			Logger: params.Logger.With(
 				zap.String("keyspace", params.Keyspace),
 				zap.String("table", params.TableSpec.Name)),
-			Tracer: otel.Tracer(TracingModuleName),
+			Tracer:    otel.Tracer(TracingModuleName),
 			DoTracing: params.DoTracing,
 
 			// Metadata
