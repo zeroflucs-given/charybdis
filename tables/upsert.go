@@ -49,7 +49,7 @@ func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, o
 		Set(t.nonKeyColumns...).
 		Where(t.allKeyPredicates...)
 
-	additionalVals := map[string]interface{}{}
+	additionalVals := map[string]any{}
 
 	for _, opt := range opts {
 		query = opt.applyToUpdateBuilder(query)

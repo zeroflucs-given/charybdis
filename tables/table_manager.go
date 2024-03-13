@@ -25,7 +25,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 		}
 	}
 
-	extraOps := []metadata.DDLOperation{}
+	var extraOps []metadata.DDLOperation
 
 	if params.TTL.Seconds() != 0 && params.TableSpec != nil {
 		extraOps = append(extraOps, metadata.DDLOperation{
@@ -96,7 +96,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 	}, nil
 }
 
-// tableManagerImpl is our underyling table manager implementation type. We make it private here
+// tableManagerImpl is our underlying table manager implementation type. We make it private here
 // to prevent embedding directly.
 type tableManagerImpl[T any] struct {
 	baseManagerImpl[T]

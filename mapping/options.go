@@ -25,7 +25,7 @@ func WithAutomaticTableSpecification[T any](name string) tables.ManagerOption {
 	return tables.WithTableSpecification(spec)
 }
 
-// WithSimpleView attatches a view definition to the table manager, based on named
+// WithSimpleView attaches a view definition to the table manager, based on named
 // columns. All columns of the base table are part of the view
 func WithSimpleView(name string, partitionKeys []string, clusteringKeys []string) tables.ManagerOption {
 	return tables.WithSpecMutator(func(ctx context.Context, table *metadata.TableSpecification, originalView *metadata.ViewSpecification) (*metadata.TableSpecification, *metadata.ViewSpecification, error) {

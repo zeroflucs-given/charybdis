@@ -15,7 +15,7 @@ type ProjectionSpecification struct {
 	Clustering   []*metadata.ClusteringColumnLookup   `json:"clustering_keys"` // Clustering keys to use
 }
 
-// Canonicalize canonicalizes the specification into order
+// Canonicalize the specification into order
 func (ps *ProjectionSpecification) Canonicalize() {
 	sort.Slice(ps.Partitioning, func(i, j int) bool {
 		return ps.Partitioning[i].Order < ps.Partitioning[j].Order

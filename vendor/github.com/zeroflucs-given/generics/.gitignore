@@ -1,8 +1,9 @@
 # OS Cruft
 .DS_Store
 thumbs.db
+.idea
 
-coverage.*
+coverage.html
 *.log
 
 # Profiling stuff

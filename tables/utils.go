@@ -2,6 +2,7 @@ package tables
 
 import (
 	"context"
+	"errors"
 
 	"github.com/gocql/gocql"
 	"go.opentelemetry.io/otel/attribute"
@@ -26,7 +27,7 @@ func doWithTracing(ctx context.Context, tracer trace.Tracer, spanName string, tr
 
 	// Handle not-founds as a silent nil return, but store errors into
 	// our traces if we have one
-	if err == gocql.ErrNotFound {
+	if errors.Is(err, gocql.ErrNotFound) {
 		return nil
 	} else if err != nil {
 		if doTracing {
@@ -56,7 +57,7 @@ func returnWithTracing[TResult any](ctx context.Context, tracer trace.Tracer, sp
 
 	// Handle not-founds as a silent nil return, but store errors into
 	// our traces if we have one
-	if err == gocql.ErrNotFound {
+	if errors.Is(err, gocql.ErrNotFound) {
 		return dflt, nil
 	} else if err != nil {
 		if doTracing {

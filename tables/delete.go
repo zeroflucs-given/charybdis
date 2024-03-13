@@ -29,8 +29,8 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 	})
 }
 
-// DeleteByPrimaryKey remvoes a single row by primary key
-func (t *tableManagerImpl[T]) DeleteByPrimaryKey(ctx context.Context, keys ...interface{}) error {
+// DeleteByPrimaryKey removes a single row by primary key
+func (t *tableManagerImpl[T]) DeleteByPrimaryKey(ctx context.Context, keys ...any) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/DeleteByPrimaryKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		// Pre-delete hooks
 		if len(t.preDeleteHooks) > 0 {

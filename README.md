@@ -20,7 +20,7 @@ in Go. It provides an opinionated, generics-enabled API that automatically perfo
 provides supporting functions for simple runtime access to data. If you want to just write structs and forget about managing
 the keyspaces by hand, and use features like expiry, lightweight transactions together - `charybdis` might be what you're looking for.
 
-Please note: **This package API should be considered unstable at this time. Once we stablize the API's, we'll mark it as v1**.
+Please note: **This package API should be considered unstable at this time. Once we stabilize the APIs, we'll mark it as v1**.
 
 ## Key Features
  - Simple queries by partition key, full key, indexes over tables with typed return objects.
@@ -32,7 +32,7 @@ Please note: **This package API should be considered unstable at this time. Once
 ## About ZeroFlucs 
 [ZeroFlucs](https://zeroflucs.io) is a B2B provider of pricing technology for Sportsbooks/wagering service providers globally. We
 use Open-Source software through our platform stack. This, along with other projects is made available through our _zeroflucs-given_ 
-Github profile on MIT licensing. To learn more you can visit:
+GitHub profile on MIT licensing. To learn more you can visit:
 
 - [The ZeroFlucs Website](https://zeroflucs.io) - For information about our products and services.
 - [The ZeroFlucs Team Blog](https://blog.zeroflucs.io/) - For more content and posts from the ZeroFlucs team.
@@ -62,15 +62,15 @@ isolated from the nuts-and-bolts for common use cases.
 ### Package Structure
 There are the following sub-packages of `github.com/zeroflucs-given/charybdis`:
 
-| Sub-Package | Role | 
-|-------------|------|
-| `generator` | Creates ScyllaDB compatible DDL statements from charybdis metadata objects. |
+| Sub-Package | Role                                                                                          | 
+|-------------|-----------------------------------------------------------------------------------------------|
+| `generator` | Creates ScyllaDB compatible DDL statements from charybdis metadata objects.                   |
 | `mapping`   | Reflects over structures to create metadata objects, for use with other areas of the package. |
-| `metadata`  | Metadata objects and model structure detail. |
-| `tables`    | A table-management helper for simplified working with tables in other programs. |
+| `metadata`  | Metadata objects and model structure detail.                                                  |
+| `tables`    | A table-management helper for simplified working with tables in other programs.               |
 
 ### Prerequisites
-Our currently supported verisons are:
+Our currently supported versions are:
 
 - ScyllaDB 4.5.x onward
 - Golang 1.18 onward (as we use generics)
@@ -90,14 +90,14 @@ Once you've got a definition, you can use the `tables` package to create a `Tabl
 various helper methods for most commonly used operations.
 
 If you want to have automatic schema management, the `generator` package contains code that will generate DDL
-statements, as well as a `tables` integration that lets you automatically initialize the keyspace and table definitins.
+statements, as well as a `tables` integration that lets you automatically initialize the keyspace and table definitions.
 
 ---
 
 ## Example Usage
 
 ### Imports
-```
+```go
 import (
 	"context"
 	"fmt"
@@ -112,12 +112,12 @@ import (
 ```
 
 ### Define Structure
-Now we can define a struct that uses chardybris:
+Now we can define a struct that uses charybdis:
 
-```
+```go
 type Record struct {
 	UserID    string `cql:"user_id" cqlpartitioning:"1"`         // User ID - Partition key
-	FirstName string `cql:"first_name" cqlindex:"by_first_name"` // Name, indeexed
+	FirstName string `cql:"first_name" cqlindex:"by_first_name"` // Name, indexed
 	Visits    int    `cql:"visits"`                              // Our value
 }
 ```
@@ -133,7 +133,7 @@ The code below combines lots of features together:
 
 You can alternatively omit the DDL management helpers, and specify a pre-built `metadata.TableSpecification` with `WithTableSpecification` option.
 
-```
+```go
 	hosts := []string{"127.0.0.1:9042"}
 
 	ctx := context.TODO() // Replace with your app contexts
@@ -160,7 +160,7 @@ You can alternatively omit the DDL management helpers, and specify a pre-built `
 ### Inserting Data
 This record is inserted with a 1 minute TTL. For more information see the below r/e options that can be passed.
 
-```
+```go
 		errUpsert := manager.Insert(ctx, &Record{
 			UserID:    fmt.Sprintf("test-user-%d", i),
 			FirstName: fmt.Sprintf("User %d", i),
@@ -209,7 +209,7 @@ complex conditions.
 Upserts are operations that can either insert or update data. They're essentially an `update` that doesn't check
 if the data already exists. This allows for fire-and-forget data writing, where you don't want to read existing
 data first.  This generally should be used in scenarios where the consequences of writing data over the top of 
-existing data has no material consequence and no secutity implications.
+existing data has no material consequence and no security implications.
 
 WithSimpleIf and WithConditionalUpdate options should not be used with Upserts as this will prevent them falling 
 back to an insert if the row is not found.

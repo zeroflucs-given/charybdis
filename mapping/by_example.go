@@ -12,7 +12,7 @@ import (
 )
 
 // CreateTableSpecificationFromExample creates a table specification object by example from a structure
-func CreateTableSpecificationFromExample(name string, example interface{}) (*metadata.TableSpecification, error) {
+func CreateTableSpecificationFromExample(name string, example any) (*metadata.TableSpecification, error) {
 	t := reflect.TypeOf(example)
 	if t == nil {
 		return nil, errors.New("no_input_type_provided")
@@ -23,7 +23,7 @@ func CreateTableSpecificationFromExample(name string, example interface{}) (*met
 		Indexes: map[string]*metadata.ColumnSpecification{},
 	}
 
-	// Loop through all of the columns with "cql" tags attached.
+	// Loop through all the columns with "cql" tags attached.
 	structMap := tagMapper.TypeMap(t)
 	for _, mappedField := range structMap.Index {
 		field := mappedField.Field

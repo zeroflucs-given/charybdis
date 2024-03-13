@@ -6,7 +6,7 @@ type PartitioningColumn struct {
 	Order  int                  `json:"order"`  // Order of the column
 }
 
-// PartitioningColumnLookup
+// PartitioningColumnLookup handles a partitioning key column when querying
 type PartitioningColumnLookup struct {
 	Column string `json:"column"` // The column we're referring to
 	Order  int    `json:"order"`  // Order of the column

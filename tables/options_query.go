@@ -4,7 +4,7 @@ import (
 	"github.com/scylladb/gocqlx/v2"
 )
 
-// queryOption is a simple bae type for providing query mutations
+// queryOption is a simple base type for providing query mutations
 type queryOption struct {
 	queryMutator func(q *gocqlx.Queryx) *gocqlx.Queryx
 }
@@ -18,7 +18,7 @@ func (s *queryOption) applyToQuery(q *gocqlx.Queryx) *gocqlx.Queryx {
 	return s.queryMutator(q)
 }
 
-// WithPageState sets the paging state to enable resuming a query on a revisit
+// WithPaging sets the paging state to enable resuming a query on a revisit
 func WithPaging(pageSize int, state []byte) QueryOption {
 	return &queryOption{
 		queryMutator: func(q *gocqlx.Queryx) *gocqlx.Queryx {

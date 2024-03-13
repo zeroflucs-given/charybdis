@@ -15,7 +15,12 @@ thumbs.db
 *.bak
 *.tar.gz
 
+# IDE
+.idea
+.vscode
+
 # Coverage output and HTML
-coverage.*
+coverage.html
+coverage.out
 *.lcov
 *.pprof

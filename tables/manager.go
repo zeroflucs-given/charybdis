@@ -10,10 +10,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// baseManagerImpl is our underyling base manager implementation type, common to views
-// and tables
+// baseManagerImpl is our underlying base manager implementation type, common to views and tables
 type baseManagerImpl[T any] struct {
-	Name            string               // Name of opbject
+	Name            string               // Name of object
 	Session         gocqlx.Session       // Session
 	Logger          *zap.Logger          // Logger
 	Tracer          trace.Tracer         // OpenTelemetry tracer

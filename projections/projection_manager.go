@@ -49,7 +49,7 @@ func NewProjectionManager[T any](ctx context.Context,
 	// The leaf table contains
 	return &projectionManagerImpl[T]{
 		controlTable: controlManager,
-		naturalKeyEx: func(instance interface{}) ([]interface{}, error) {
+		naturalKeyEx: func(instance any) ([]any, error) {
 			return extractPrimaryKey(controlSpec, instance)
 		},
 		projections: projections,
@@ -140,7 +140,7 @@ func buildProjection[T any](ctx context.Context, params *projectionManagerParams
 	}
 
 	return &projectionImpl[T]{
-		projectionKeyEx: func(instance interface{}) ([]interface{}, error) {
+		projectionKeyEx: func(instance any) ([]any, error) {
 			return extractPrimaryKey(tableSpec, instance)
 		},
 		leafTable: tableManager,

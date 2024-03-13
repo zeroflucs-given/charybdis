@@ -23,7 +23,7 @@ func (t *baseManagerImpl[T]) Count(ctx context.Context) (int64, error) {
 }
 
 // CountByPartitionKey gets the number of records in the partition.
-func (t *baseManagerImpl[T]) CountByPartitionKey(ctx context.Context, partitionKeys ...interface{}) (int64, error) {
+func (t *baseManagerImpl[T]) CountByPartitionKey(ctx context.Context, partitionKeys ...any) (int64, error) {
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/CountByPartitionKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (int64, error) {
 		return t.countInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			stmt, params := qb.

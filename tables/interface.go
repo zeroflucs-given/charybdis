@@ -14,7 +14,7 @@ type TableManager[T any] interface {
 	Count(ctx context.Context) (int64, error)
 
 	// CountByPartitionKey gets the number of records in the partition.
-	CountByPartitionKey(ctx context.Context, partitionKeys ...interface{}) (int64, error)
+	CountByPartitionKey(ctx context.Context, partitionKeys ...any) (int64, error)
 
 	// CountByCustomQuery gets the number of records in a custom query.
 	CountByCustomQuery(ctx context.Context, queryBuilder QueryBuilderFn) (int64, error)
@@ -23,18 +23,18 @@ type TableManager[T any] interface {
 	Delete(ctx context.Context, instance *T) error
 
 	// DeleteByPrimaryKey removes a single row by its primary key values. Keys must be specified in order.
-	DeleteByPrimaryKey(ctx context.Context, keys ...interface{}) error
+	DeleteByPrimaryKey(ctx context.Context, keys ...any) error
 
 	// GetByPartitionKey gets the first record from a partition. If there are multiple records, the
 	// behaviour is to return the first record by clustering order. Equivalent to GetByPrimaryKey
 	// if no clustering key is set
-	GetByPartitionKey(ctx context.Context, keys ...interface{}) (*T, error)
+	GetByPartitionKey(ctx context.Context, keys ...any) (*T, error)
 
 	// GetByPrimaryKey gets by the full primary key (partitioning and clustering keys)
-	GetByPrimaryKey(ctx context.Context, primaryKeys ...interface{}) (*T, error)
+	GetByPrimaryKey(ctx context.Context, primaryKeys ...any) (*T, error)
 
 	// GetByIndexedColumn gets the first record matching an index
-	GetByIndexedColumn(ctx context.Context, columnName string, value interface{}, opts ...QueryOption) (*T, error)
+	GetByIndexedColumn(ctx context.Context, columnName string, value any, opts ...QueryOption) (*T, error)
 
 	// GetTableSpec gets the table specification for this table-manager
 	GetTableSpec() *metadata.TableSpecification
@@ -57,13 +57,13 @@ type TableManager[T any] interface {
 	SelectByCustomQuery(ctx context.Context, queryBuilder QueryBuilderFn, pagingFn PageHandlerFn[T], opts ...QueryOption) error
 
 	// SelectByPartitionKey gets all records from a partition
-	SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...interface{}) error
+	SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...any) error
 
 	// SelectByPrimaryKey gets all records by partition key and any clustering keys provided
-	SelectByPrimaryKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, primaryKeys ...interface{}) error
+	SelectByPrimaryKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, primaryKeys ...any) error
 
 	// SelectByIndexedColumn gets all records matching an indexed column
-	SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue interface{}, opts ...QueryOption) error
+	SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue any, opts ...QueryOption) error
 
 	// Update an object. Will error if the object does not exist.
 	Update(ctx context.Context, instance *T, opts ...UpdateOption) error
@@ -90,7 +90,7 @@ type TableManager[T any] interface {
 // ViewManager is an object that provides an abstraction over a view in ScyllaDB
 type ViewManager[T any] interface {
 	// CountByPartitionKey gets the number of records in the partition.
-	CountByPartitionKey(ctx context.Context, partitionKeys ...interface{}) (int64, error)
+	CountByPartitionKey(ctx context.Context, partitionKeys ...any) (int64, error)
 
 	// CountByCustomQuery gets the number of records in a custom query.
 	CountByCustomQuery(ctx context.Context, queryBuilder QueryBuilderFn) (int64, error)
@@ -98,13 +98,13 @@ type ViewManager[T any] interface {
 	// GetByPartitionKey gets the first record from a partition. If there are multiple records, the
 	// behaviour is to return the first record by clustering order. Equivalent to GetByPrimaryKey
 	// if no clustering key is set
-	GetByPartitionKey(ctx context.Context, keys ...interface{}) (*T, error)
+	GetByPartitionKey(ctx context.Context, keys ...any) (*T, error)
 
 	// GetByPrimaryKey gets by the full primary key (partitioning and clustering keys)
-	GetByPrimaryKey(ctx context.Context, primaryKeys ...interface{}) (*T, error)
+	GetByPrimaryKey(ctx context.Context, primaryKeys ...any) (*T, error)
 
 	// GetByIndexedColumn gets the first record matching an index
-	GetByIndexedColumn(ctx context.Context, columnName string, value interface{}, opts ...QueryOption) (*T, error)
+	GetByIndexedColumn(ctx context.Context, columnName string, value any, opts ...QueryOption) (*T, error)
 
 	// Scan performs a paged scan of the table, processing each batch of records. If the ScanFn returns true,
 	// the scan will continue advancing until no more records are returned.
@@ -114,13 +114,13 @@ type ViewManager[T any] interface {
 	SelectByCustomQuery(ctx context.Context, queryBuilder QueryBuilderFn, pagingFn PageHandlerFn[T], opts ...QueryOption) error
 
 	// SelectByPartitionKey gets all records from a partition
-	SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...interface{}) error
+	SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...any) error
 
 	// SelectByPrimaryKey gets all records from a partition
-	SelectByPrimaryKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, primaryKeys ...interface{}) error
+	SelectByPrimaryKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, primaryKeys ...any) error
 
 	// SelectByIndexedColumn gets all records matching an indexed column
-	SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue interface{}, opts ...QueryOption) error
+	SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue any, opts ...QueryOption) error
 }
 
 // InsertOption is an interface that describes options that can mutate an insert
@@ -142,7 +142,7 @@ type UpdateOption interface {
 	applyToUpdateBuilder(builder *qb.UpdateBuilder) *qb.UpdateBuilder
 
 	// getMapData gets any additional key-values that the predicate requires
-	getMapData() map[string]interface{}
+	getMapData() map[string]any
 
 	// isPrecondition indicates if this option applies a precondition to the query
 	isPrecondition() bool
@@ -161,6 +161,6 @@ type ManagerOption interface {
 	insertOptions() []InsertOption
 	updateOptions() []UpdateOption
 	upsertOptions() []UpsertOption
-	beforeChange(ctx context.Context, rec interface{}) error
-	afterChange(ctx context.Context, rec interface{}) error
+	beforeChange(ctx context.Context, rec any) error
+	afterChange(ctx context.Context, rec any) error
 }

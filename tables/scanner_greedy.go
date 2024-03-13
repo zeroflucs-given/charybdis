@@ -3,7 +3,7 @@ package tables
 import "context"
 
 // GreedyScanner is a helper type that lets us read all records from a table without iterating. It
-// is essentally able have its OnPage function passed as the PageHandlerFn to other functions.
+// is essentially able have its OnPage function passed as the PageHandlerFn to other functions.
 type GreedyScanner[T any] struct {
 	items []*T
 }

@@ -32,7 +32,7 @@ func (u *upsertOption) isPrecondition() bool {
 	return u.isOptPrecondition
 }
 
-func (u *upsertOption) getMapData() map[string]interface{} {
+func (u *upsertOption) getMapData() map[string]any {
 	return nil
 }
 

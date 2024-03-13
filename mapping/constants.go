@@ -23,12 +23,12 @@ const (
 	// with negative numeric values indicating descending sorts.
 	TagNamePartitioning = "cqlpartitioning"
 
-	// TagNameClustering indicates the tag name to use when identifying clustering keys
+	// TagNameSorting indicates the tag name to use when identifying clustering keys
 	// within the table. The order of the clustering values is the absolute value, with
 	// negative numeric values indicating descending sorts.
 	TagNameSorting = "cqlclustering"
 
-	// TagNameIndex indciates to create a named index over the table for a given column.
+	// TagNameIndex indicates to create a named index over the table for a given column.
 	// Scylla only supports a singular index.
 	TagNameIndex = "cqlindex"
 )

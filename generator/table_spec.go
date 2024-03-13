@@ -10,7 +10,7 @@ import (
 	"github.com/zeroflucs-given/generics"
 )
 
-// CreateDDLFromTableSpecification creates the DDL to create and extend a table from it's table specification
+// CreateDDLFromTableSpecification creates the DDL to create and extend a table from its table specification
 func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecification, existingMetadata *tableMetadata) ([]metadata.DDLOperation, error) {
 	// Validate input
 	if keyspace == "" || spec == nil {
@@ -31,7 +31,7 @@ func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecif
 
 	if existingTable == nil {
 		// Create the shell of the table if it does not already exist
-		initialCreate := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %v.%v (%v, PRIMARY KEY(%v))",
+		initialCreate := fmt.Sprintf("CREATE TABLE if NOT EXISTS %v.%v (%v, PRIMARY KEY(%v))",
 			keyspace,
 			spec.Name,
 			strings.Join(generics.Map(generics.Filter(spec.Columns, func(i int, c *metadata.ColumnSpecification) bool {
@@ -118,7 +118,7 @@ func getKeySpec(partitionCols []*metadata.PartitioningColumn, clusteringCols []*
 
 // getClusteringSuffix gets a WITH CLUSTERING ORDER clause if appropriate
 func getClusteringSuffix(clusteringCols []*metadata.ClusteringColumn) string {
-	sortStrings := []string{}
+	var sortStrings []string
 	for _, item := range clusteringCols {
 		if item.Descending {
 			sortStrings = append(sortStrings, fmt.Sprintf("%v DESC", item.Column.Name))

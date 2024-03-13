@@ -23,4 +23,4 @@ type Projection[T any] interface {
 }
 
 // PrimaryKeyExtractor extracts primary key fields from the input instance
-type PrimaryKeyExtractor func(instance interface{}) ([]interface{}, error)
+type PrimaryKeyExtractor func(instance any) ([]any, error)

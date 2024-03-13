@@ -6,7 +6,7 @@ import (
 	"github.com/scylladb/gocqlx/v2"
 )
 
-// Scan performs an iteractive scan of the data in the table.
+// Scan performs an interactive scan of the data in the table.
 func (t *baseManagerImpl[T]) Scan(ctx context.Context, fn PageHandlerFn[T], opts ...QueryOption) error {
 	return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 		stmt, params := t.Table.SelectAll()

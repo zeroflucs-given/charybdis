@@ -66,21 +66,21 @@ func (v *ViewSpecification) ToCQLX() *table.Table {
 		return nil
 	}
 
-	// The full list of columns needs to be built from the partition and sorting keys and 
+	// The full list of columns needs to be built from the partition and sorting keys and
 	// then appending any remaining columns from the base table
 	mappedCols := map[string]*ColumnSpecification{}
 	for _, c := range v.Table.Columns {
 		mappedCols[c.Name] = c
 	}
 
-	allColumns := []*ColumnSpecification{}
-	for _, c := range v.Partitioning{
+	var allColumns []*ColumnSpecification
+	for _, c := range v.Partitioning {
 		allColumns = append(allColumns, mappedCols[c.Column.Name])
 	}
-	for _, c := range v.Clustering{
+	for _, c := range v.Clustering {
 		allColumns = append(allColumns, mappedCols[c.Column.Name])
 	}
-	for _, c := range v.Table.Columns{
+	for _, c := range v.Table.Columns {
 		// Check this column doesn't already exist in the list
 		found := false
 		for _, a := range allColumns {
@@ -97,7 +97,7 @@ func (v *ViewSpecification) ToCQLX() *table.Table {
 	md := table.Metadata{
 		Name: v.Name,
 		Columns: generics.Map(allColumns, func(i int, v *ColumnSpecification) string {
-			
+
 			return v.Name
 		}),
 		PartKey: generics.Map(v.Partitioning, func(i int, v *PartitioningColumn) string {

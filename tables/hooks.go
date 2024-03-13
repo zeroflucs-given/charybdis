@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// ChangeHook is a function that recieves an object in response to a pre or post change event.
+// ChangeHook is a function that receives an object in response to a pre or post change event.
 type ChangeHook[T any] func(ctx context.Context, updatedRecord *T) error
 
 // AddPreChangeHook adds a pre-change hook. These hooks do not fire for deletes.

@@ -7,7 +7,7 @@ import (
 // updateOption is our internal type that implements the core of the updateOption
 // handling.
 type updateOption struct {
-	mapData           map[string]interface{}
+	mapData           map[string]any
 	updateBuilderFn   func(builder *qb.UpdateBuilder) *qb.UpdateBuilder
 	isOptPrecondition bool
 }
@@ -17,7 +17,7 @@ func (u *updateOption) applyToUpdateBuilder(builder *qb.UpdateBuilder) *qb.Updat
 	return u.updateBuilderFn(builder)
 }
 
-func (u *updateOption) getMapData() map[string]interface{} {
+func (u *updateOption) getMapData() map[string]any {
 	return u.mapData
 }
 
@@ -26,14 +26,14 @@ func (u *updateOption) isPrecondition() bool {
 }
 
 // WithSimpleIf allows for a LWT that does a simple value-based comparison on a single column
-func WithSimpleIf(targetColumn string, val interface{}) UpdateOption {
+func WithSimpleIf(targetColumn string, val any) UpdateOption {
 	// Just needs to be a unique column name that won't be part of the
 	// table specification. If someone uses this, queries will naturally
 	// fail.
 	const simpleIfName = "charybdis_if"
 
 	return &updateOption{
-		mapData: map[string]interface{}{
+		mapData: map[string]any{
 			simpleIfName: val,
 		},
 		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {
@@ -44,7 +44,7 @@ func WithSimpleIf(targetColumn string, val interface{}) UpdateOption {
 }
 
 // WithConditionalUpdate does a conditional update with a custom predicate and many values.
-func WithConditionalUpdate(cmp qb.Cmp, payload map[string]interface{}) UpdateOption {
+func WithConditionalUpdate(cmp qb.Cmp, payload map[string]any) UpdateOption {
 	return &updateOption{
 		mapData: payload,
 		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {

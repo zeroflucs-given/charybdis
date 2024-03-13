@@ -119,6 +119,13 @@ slice as no items fail the predicate.
 ### Any / AnyContext
 Returns true if any item in the slice passes.
 
+#### Combinations
+Returns all combinations (note: not permutations) of items of length N over the slice.
+
+### CombinationsFiltered 
+Returns all combinations of items of length N over the slice, where the members of the slice can be filtered.
+The return type contains references back to the original input list indicies. 
+
 ### Concatenate
 Joins N slices of items together in the given order. Allocates a new slice.
 
@@ -128,8 +135,16 @@ Returns true if the slice contains the specified value T, false otherwise. Uses 
 ### Count / CountContext
 Returns the count of items matching the input filters.
 
+### Cut
+Takes a slice and returns the head of the slice, plus a second value for the remainder
+of the slice.
+
 ### DefaultIfEmpty 
 Given a slice, if the slice is empty or nil will create a slice of a single default item.
+
+### ExecuteOnce
+Takes a function to be run at a later time and caches its result for retrieval many times.
+Subsequent retrievals will block until either their context is cancelled, or the task completes.
 
 ### Filter / FilterContext
 Creates a filtered set of the values in the slice, using a filter function.
@@ -138,15 +153,36 @@ Creates a filtered set of the values in the slice, using a filter function.
 Returns the first item of the slice that matches the filters. If no value matches, returns
 the type default.
 
+### FirstIndexOf
+Returns the first index of a value in a typed slice, or -1 if not present.
+
 ### Group / GroupWithContext
 Uses a mapper function to assign input values to buckets.
+
+### If
+If returns the equivalent value based on the predicate. This is an eager evaluation of both sides
+and not a true ternary operator.
 
 ### Last / LastWithContext
 Returns the last item of the slice that matches the filter.
 
+### LastIndexOf
+Returns the index of the last occurrence of a value in the slice, or -1 if not present.
+
 ### Map / MapWithContext
 Runs the specified mapper over each element of the input slice, creating an output slice of
 a different type.
+
+### Mutate
+Allows mutation of the slice elements, but the output must be of the same type as the original 
+elements. 
+
+### PointerTo
+Returns a pointer reference to the input. Useful for lots of APIs that use string, integer pointers to differentiate between empty and absent.
+
+## PointerOrNil 
+Returns a pointer to the input, unless the input is the default value for its type (i.e. 0, empty string etc). In that scenario will
+return nil.
 
 ### Reverse
 Creates a reverse-sorted version of the input slice.
@@ -172,6 +208,8 @@ Take items from the slice until the filter function returns false.
 ### ToMap / ToMapWithContext
 Converts a slice of values to Go map, using mappers for the key and values respectively.
 
+### ValueOrDefault
+If a pointer is set, will return the dereferenced value. Otherwise returns the default value of the target type.
 
 ## Slice Aggregations
 ---------------
@@ -192,6 +230,9 @@ Assembles a map from a slice of key-value pairs.
 
 ## Keys
 Returns a slice of the key members of the map.
+
+## MapValues / MapValuesWithContext
+Allows translation of a maps items to other values.
 
 ## ToKeyValues
 Converts a map into a slice of key-value pairs. As per Go handling of maps, the order of

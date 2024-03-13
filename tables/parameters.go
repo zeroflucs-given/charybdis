@@ -4,9 +4,11 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
-	"github.com/zeroflucs-given/charybdis/metadata"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/zap"
+
+	"github.com/zeroflucs-given/charybdis/metadata"
 )
 
 // TableManagerParameters is the set of parameters for a table-manager
@@ -27,7 +29,7 @@ type SessionFactory func(keyspace string) (*gocql.Session, error)
 
 func (t *tableManagerParameters) ensureDefaults() {
 	t.Logger = zap.NewNop()
-	t.TracerProvider = trace.NewNoopTracerProvider()
+	t.TracerProvider = noop.NewTracerProvider()
 	t.ReadConsistency = gocql.LocalQuorum
 	t.WriteConsistency = gocql.LocalQuorum
 }

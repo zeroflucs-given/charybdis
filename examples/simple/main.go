@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -84,7 +85,7 @@ func main() {
 		UserID:    "test-user-1", // Matches the key above
 		FirstName: "wrong",
 	})
-	if errLWT != tables.ErrPreconditionFailed {
+	if !errors.Is(errLWT, tables.ErrPreconditionFailed) {
 		panic("Should have failed here")
 	}
 

@@ -10,7 +10,7 @@ import (
 )
 
 // extractPrimaryKey extracts the ordered primary key fields using reflection
-func extractPrimaryKey(tableSpec *metadata.TableSpecification, instance interface{}) ([]interface{}, error) {
+func extractPrimaryKey(tableSpec *metadata.TableSpecification, instance any) ([]any, error) {
 	if instance == nil {
 		return nil, errors.New("invalid instance specifier")
 	}
@@ -18,7 +18,7 @@ func extractPrimaryKey(tableSpec *metadata.TableSpecification, instance interfac
 	tableSpec.Canonicalize()
 
 	// Extract all fields
-	columns := map[string]interface{}{}
+	columns := map[string]any{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		TagName: mapping.TagNameCassandra,
 		Result:  &columns,
@@ -31,7 +31,7 @@ func extractPrimaryKey(tableSpec *metadata.TableSpecification, instance interfac
 		return nil, fmt.Errorf("error converting instance to map: %w", errDecode)
 	}
 
-	results := []interface{}{}
+	var results []any
 
 	for _, col := range tableSpec.Partitioning {
 		val, ok := columns[col.Column.Name]

@@ -1,6 +1,6 @@
 package generics
 
-// Min gets the minumum of numeric values. If the slice is empty then
+// Min gets the minimum of numeric values. If the slice is empty then
 // a value of 0 is returned.
 func Min[T Numeric](items []T) T {
 	var result T

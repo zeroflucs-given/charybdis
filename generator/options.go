@@ -2,6 +2,7 @@ package generator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -150,10 +151,10 @@ func WithNetworkAwareKeyspaceManagement(log *zap.Logger, cluster utils.ClusterCo
 		log = zap.NewNop()
 	}
 
-	datacentres := generics.Map(generics.ToKeyValues(replicationFactors), func(i int, kvp generics.KeyValuePair[string, int32]) string {
+	dataCentres := generics.Map(generics.ToKeyValues(replicationFactors), func(i int, kvp generics.KeyValuePair[string, int32]) string {
 		return fmt.Sprintf("'%v': %d", kvp.Key, kvp.Value)
 	})
-	sort.Strings(datacentres)
+	sort.Strings(dataCentres)
 
 	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error {
 		sess, err := gocqlx.WrapSession(cluster().CreateSession())
@@ -173,7 +174,7 @@ func WithNetworkAwareKeyspaceManagement(log *zap.Logger, cluster utils.ClusterCo
 		stmt := fmt.Sprintf(`CREATE KEYSPACE IF NOT EXISTS  %s WITH replication = {
 			'class' : 'NetworkTopologyStrategy',
 			%v			
-		}`, keyspace, strings.Join(datacentres, ", "))
+		}`, keyspace, strings.Join(dataCentres, ", "))
 
 		log.With(zap.String("query", stmt)).Info("Creating keyspace, if required with network aware replication.")
 
@@ -215,7 +216,7 @@ type tableMetadata struct {
 func DescribeTableMetadata(sess gocqlx.Session, keyspace string, tableName string) (*tableMetadata, error) {
 
 	keyspaceMetadata, errDef := sess.KeyspaceMetadata(keyspace)
-	if errDef == gocql.ErrKeyspaceDoesNotExist {
+	if errors.Is(errDef, gocql.ErrKeyspaceDoesNotExist) {
 		return nil, nil
 	} else if errDef != nil {
 		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
@@ -242,25 +243,25 @@ func DescribeTableMetadata(sess gocqlx.Session, keyspace string, tableName strin
 
 // DescribeViewMetadata reads the schema of a view in a given keyspace schema from the database
 func DescribeViewMetadata(sess gocqlx.Session, keyspace string, viewName string) (*gocql.ViewMetadata, error) {
-	metadata, errDef := sess.KeyspaceMetadata(keyspace)
-	if errDef == gocql.ErrKeyspaceDoesNotExist {
+	md, errDef := sess.KeyspaceMetadata(keyspace)
+	if errors.Is(errDef, gocql.ErrKeyspaceDoesNotExist) {
 		return nil, nil
 	} else if errDef != nil {
 		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
 	}
-	if metadata.Views != nil {
-		return metadata.Views[viewName], nil
+	if md.Views != nil {
+		return md.Views[viewName], nil
 	}
 	return nil, nil
 }
 
 // DescribeKeyspaceMetadata reads the schema of a keyspace from the database
 func DescribeKeyspaceMetadata(sess gocqlx.Session, keyspace string) (*gocql.KeyspaceMetadata, error) {
-	metadata, errDef := sess.KeyspaceMetadata(keyspace)
-	if errDef == gocql.ErrKeyspaceDoesNotExist {
+	md, errDef := sess.KeyspaceMetadata(keyspace)
+	if errors.Is(errDef, gocql.ErrKeyspaceDoesNotExist) {
 		return nil, nil
 	} else if errDef != nil {
 		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
 	}
-	return metadata, nil
+	return md, nil
 }

@@ -26,7 +26,7 @@ func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, o
 		Set(t.nonKeyColumns...).
 		Where(t.allKeyPredicates...)
 
-	additionalVals := map[string]interface{}{}
+	additionalVals := map[string]any{}
 	havePreconditions := false
 
 	for _, opt := range opts {

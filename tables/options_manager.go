@@ -26,7 +26,7 @@ func WithCluster(cluster utils.ClusterConfigGeneratorFn) ManagerOption {
 	}
 }
 
-// WithDefaultReadConsistency sets the default read consistecy
+// WithDefaultReadConsistency sets the default read consistency
 func WithDefaultReadConsistency(level gocql.Consistency) ManagerOption {
 	return &tableManagerOption{
 		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
@@ -36,7 +36,7 @@ func WithDefaultReadConsistency(level gocql.Consistency) ManagerOption {
 	}
 }
 
-// WithDefaultWriteConsistency sets the default read consistecy
+// WithDefaultWriteConsistency sets the default read consistency
 func WithDefaultWriteConsistency(level gocql.Consistency) ManagerOption {
 	return &tableManagerOption{
 		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
@@ -176,10 +176,10 @@ func (t tableManagerOption) upsertOptions() []UpsertOption {
 	return t.upsertOpts
 }
 
-func (t tableManagerOption) beforeChange(ctx context.Context, rec interface{}) error {
+func (t tableManagerOption) beforeChange(ctx context.Context, rec any) error {
 	return nil
 }
 
-func (t tableManagerOption) afterChange(ctx context.Context, rec interface{}) error {
+func (t tableManagerOption) afterChange(ctx context.Context, rec any) error {
 	return nil
 }

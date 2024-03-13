@@ -10,7 +10,7 @@ import (
 
 // GetByPartitionKey gets the first record from a partition. If there are multiple records, the
 // behaviour is to return the first record by clustering order.
-func (t *baseManagerImpl[T]) GetByPartitionKey(ctx context.Context, partitionKeys ...interface{}) (*T, error) {
+func (t *baseManagerImpl[T]) GetByPartitionKey(ctx context.Context, partitionKeys ...any) (*T, error) {
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByPartitionKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		stmt, params := qb.
 			Select(t.Table.Name()).Columns(t.allColumnNames...).
@@ -27,7 +27,7 @@ func (t *baseManagerImpl[T]) GetByPartitionKey(ctx context.Context, partitionKey
 }
 
 // GetByPrimaryKey gets a record by primary key, including both partitioning and any clustering keys
-func (t *baseManagerImpl[T]) GetByPrimaryKey(ctx context.Context, primaryKeys ...interface{}) (*T, error) {
+func (t *baseManagerImpl[T]) GetByPrimaryKey(ctx context.Context, primaryKeys ...any) (*T, error) {
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByPrimaryKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		stmt, params := qb.
 			Select(t.Table.Name()).Columns(t.allColumnNames...).
@@ -61,7 +61,7 @@ func (t *baseManagerImpl[T]) GetByExample(ctx context.Context, example *T) (*T, 
 }
 
 // GetByIndexedColumn gets the first record matching an index
-func (t *baseManagerImpl[T]) GetByIndexedColumn(ctx context.Context, columnName string, value interface{}, opts ...QueryOption) (*T, error) {
+func (t *baseManagerImpl[T]) GetByIndexedColumn(ctx context.Context, columnName string, value any, opts ...QueryOption) (*T, error) {
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByIndexedColumn", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		var target T
 
@@ -101,7 +101,7 @@ func (t *baseManagerImpl[T]) SelectByCustomQuery(ctx context.Context, queryBuild
 }
 
 // SelectByIndexedColumn selects all records by an indexed column
-func (t *baseManagerImpl[T]) SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue interface{}, opts ...QueryOption) error {
+func (t *baseManagerImpl[T]) SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue any, opts ...QueryOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByIndexedColumn", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			stmt, params := qb.
@@ -116,7 +116,7 @@ func (t *baseManagerImpl[T]) SelectByIndexedColumn(ctx context.Context, fn PageH
 }
 
 // SelectByPartitionKey gets all records from a partition
-func (t *baseManagerImpl[T]) SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...interface{}) error {
+func (t *baseManagerImpl[T]) SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...any) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByPartitionKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			return t.Table.
@@ -126,7 +126,7 @@ func (t *baseManagerImpl[T]) SelectByPartitionKey(ctx context.Context, fn PageHa
 }
 
 // SelectByPrimaryKey gets all records by primary key, including both partitioning and zero or more clustering keys
-func (t *baseManagerImpl[T]) SelectByPrimaryKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, primaryKeys ...interface{}) error {
+func (t *baseManagerImpl[T]) SelectByPrimaryKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, primaryKeys ...any) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByPrimaryKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			// trim predicates list to match length of primary keys entered in case not all clustering keys have been specified
