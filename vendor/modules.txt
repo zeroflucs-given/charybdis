@@ -38,7 +38,7 @@ github.com/scylladb/gocqlx/v2/table
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# github.com/zeroflucs-given/generics v0.0.0-20240313011108-a343063bef3f
+# github.com/zeroflucs-given/generics v0.0.0-20240314015508-5e445e47cf6d
 ## explicit; go 1.18
 github.com/zeroflucs-given/generics
 github.com/zeroflucs-given/generics/filtering

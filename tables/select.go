@@ -2,6 +2,7 @@ package tables
 
 import (
 	"context"
+	"errors"
 
 	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v2"
@@ -65,11 +66,15 @@ func (t *baseManagerImpl[T]) GetByIndexedColumn(ctx context.Context, columnName 
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByIndexedColumn", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		var target T
 
-		stmt, params := qb.
+		builder := qb.
 			Select(t.Table.Name()).
 			Columns(t.TableMetadata.Columns...).
-			Where(qb.Eq(columnName)).
-			ToCql()
+			Where(qb.Eq(columnName))
+
+		for _, opt := range opts {
+			builder = opt.applyToBuilder(builder)
+		}
+		stmt, params := builder.ToCql()
 
 		query := t.Session.ContextQuery(ctx, stmt, params).
 			Consistency(t.readConsistency).
@@ -83,7 +88,7 @@ func (t *baseManagerImpl[T]) GetByIndexedColumn(ctx context.Context, columnName 
 			Bind(value).
 			Get(&target)
 
-		if errQuery == gocql.ErrNotFound {
+		if errors.Is(errQuery, gocql.ErrNotFound) {
 			return nil, nil
 		} else if errQuery != nil {
 			return nil, errQuery
@@ -104,11 +109,15 @@ func (t *baseManagerImpl[T]) SelectByCustomQuery(ctx context.Context, queryBuild
 func (t *baseManagerImpl[T]) SelectByIndexedColumn(ctx context.Context, fn PageHandlerFn[T], columnName string, columnValue any, opts ...QueryOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByIndexedColumn", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
-			stmt, params := qb.
+			builder := qb.
 				Select(t.Table.Name()).
 				Columns(t.TableMetadata.Columns...).
-				Where(qb.Eq(columnName)).
-				ToCql()
+				Where(qb.Eq(columnName))
+
+			for _, opt := range opts {
+				opt.applyToBuilder(builder)
+			}
+			stmt, params := builder.ToCql()
 
 			return sess.ContextQuery(ctx, stmt, params).Bind(columnValue)
 		}, fn, opts...)
@@ -119,8 +128,11 @@ func (t *baseManagerImpl[T]) SelectByIndexedColumn(ctx context.Context, fn PageH
 func (t *baseManagerImpl[T]) SelectByPartitionKey(ctx context.Context, fn PageHandlerFn[T], opts []QueryOption, partitionKeys ...any) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByPartitionKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
-			return t.Table.
-				SelectQueryContext(ctx, sess, t.allColumnNames...).Bind(partitionKeys...)
+			builder := t.Table.SelectBuilder(t.allColumnNames...)
+			for _, opt := range opts {
+				opt.applyToBuilder(builder)
+			}
+			return sess.Query(builder.ToCql()).WithContext(ctx).Bind(partitionKeys...)
 		}, fn, opts...)
 	})
 }
@@ -132,10 +144,15 @@ func (t *baseManagerImpl[T]) SelectByPrimaryKey(ctx context.Context, fn PageHand
 			// trim predicates list to match length of primary keys entered in case not all clustering keys have been specified
 			predicates := t.allKeyPredicates[:len(primaryKeys)]
 
-			stmt, params := qb.
+			builder := qb.
 				Select(t.Table.Name()).Columns(t.allColumnNames...).
-				Where(predicates...).
-				ToCql()
+				Where(predicates...)
+
+			for _, opt := range opts {
+				opt.applyToBuilder(builder)
+			}
+
+			stmt, params := builder.ToCql()
 
 			return t.Session.ContextQuery(ctx, stmt, params).Bind(primaryKeys...)
 		}, fn, opts...)

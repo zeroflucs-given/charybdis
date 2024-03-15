@@ -142,6 +142,18 @@ of the slice.
 ### DefaultIfEmpty 
 Given a slice, if the slice is empty or nil will create a slice of a single default item.
 
+### Distinct
+Sorts and removes any duplicate elements from a slice, returning a new copy. The input slice is unchanged.
+
+### DistinctFunc
+Similar to Distinct but takes a custom comparison function.
+
+### DistinctStable
+Similar to Distinct but keeps the original order of the elements.
+
+### DistinctStableFunc
+Similar to DistinctStable but takes a custom hash function. Hash collisions are ignored.
+
 ### ExecuteOnce
 Takes a function to be run at a later time and caches its result for retrieval many times.
 Subsequent retrievals will block until either their context is cancelled, or the task completes.

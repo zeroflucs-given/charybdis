@@ -8,7 +8,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/scylladb/gocqlx/v2 v2.8.0
 	github.com/stretchr/testify v1.9.0
-	github.com/zeroflucs-given/generics v0.0.0-20240313011108-a343063bef3f
+	github.com/zeroflucs-given/generics v0.0.0-20240314015508-5e445e47cf6d
 	go.opentelemetry.io/otel v1.24.0
 	go.opentelemetry.io/otel/trace v1.24.0
 	go.uber.org/zap v1.27.0

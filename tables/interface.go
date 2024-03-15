@@ -134,6 +134,7 @@ type InsertOption interface {
 // QueryOption is an interface that describes options that can mutate a scan.
 type QueryOption interface {
 	applyToQuery(query *gocqlx.Queryx) *gocqlx.Queryx
+	applyToBuilder(builder *qb.SelectBuilder) *qb.SelectBuilder
 }
 
 // UpdateOption is an interface that describes options that can mutate an update
