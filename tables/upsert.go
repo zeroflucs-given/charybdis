@@ -8,7 +8,7 @@ import (
 )
 
 // Upsert overwrites or inserts an object.
-func (t *tableManagerImpl[T]) Upsert(ctx context.Context, instance *T, opts ...UpdateOption) error {
+func (t *tableManagerImpl[T]) Upsert(ctx context.Context, instance *T, opts ...UpsertOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/Upsert", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.upsertInternal(ctx, instance, opts...)
 	})
@@ -16,7 +16,7 @@ func (t *tableManagerImpl[T]) Upsert(ctx context.Context, instance *T, opts ...U
 
 // UpsertBulk upserts many objects in parallel, up to a given number. If the concurrency limit is not set,
 // then a default of DefaultBulkConcurrency is used.
-func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, concurrency int, opts ...UpdateOption) error {
+func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, concurrency int, opts ...UpsertOption) error {
 	if concurrency <= 0 {
 		concurrency = DefaultBulkConcurrency
 	}
@@ -37,7 +37,7 @@ func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, co
 }
 
 // upsertInternal is a helper function that performs a single upsert
-func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, opts ...UpdateOption) error {
+func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, opts ...UpsertOption) error {
 	// Pre-change hooks
 	errPre := t.runPreHooks(ctx, instance)
 	if errPre != nil {

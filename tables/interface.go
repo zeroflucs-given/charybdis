@@ -69,11 +69,11 @@ type TableManager[T any] interface {
 	Update(ctx context.Context, instance *T, opts ...UpdateOption) error
 
 	// Upsert overwrites or inserts an object.
-	Upsert(ctx context.Context, instance *T, opts ...UpdateOption) error
+	Upsert(ctx context.Context, instance *T, opts ...UpsertOption) error
 
 	// UpsertBulk upserts many objects in parallel, up to a given number. If the concurrency limit is not set,
 	// then a default of DefaultBulkConcurrency is used.
-	UpsertBulk(ctx context.Context, instances []*T, concurrency int, opts ...UpdateOption) error
+	UpsertBulk(ctx context.Context, instances []*T, concurrency int, opts ...UpsertOption) error
 
 	// AddPreChangeHook adds a pre-change hook. These hooks do not fire for deletes.
 	AddPreChangeHook(hook ChangeHook[T])

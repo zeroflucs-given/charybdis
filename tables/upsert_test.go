@@ -92,7 +92,7 @@ func TestWithSimpleIfNotFound(t *testing.T) {
 		OrderID:         "upsert-test-3",
 		ShippingAddress: "new address",
 	}
-	option := tables.WithSimpleIf("shipping_address", "address")
+	option := tables.WithSimpleUpsertIf("shipping_address", "address")
 	errUpdate := manager.Upsert(ctx, updated, option)
 
 	// Assert

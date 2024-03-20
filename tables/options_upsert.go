@@ -7,6 +7,7 @@ import (
 )
 
 type upsertOption struct {
+	mapData           map[string]any
 	insertBuilderFn   func(builder *qb.InsertBuilder) *qb.InsertBuilder
 	updateBuilderFn   func(builder *qb.UpdateBuilder) *qb.UpdateBuilder
 	isOptPrecondition bool
@@ -33,7 +34,7 @@ func (u *upsertOption) isPrecondition() bool {
 }
 
 func (u *upsertOption) getMapData() map[string]any {
-	return nil
+	return u.mapData
 }
 
 // WithTTL sets the TTL option for an upsert.
@@ -46,5 +47,33 @@ func WithTTL(d time.Duration) UpsertOption {
 			return builder.TTL(d)
 		},
 		isOptPrecondition: false,
+	}
+}
+
+// WithSimpleUpsertIf allows for a LWT that does a simple value-based comparison on a single column
+func WithSimpleUpsertIf(targetColumn string, val any) UpsertOption {
+	// Just needs to be a unique column name that won't be part of the
+	// table specification. If someone uses this, queries will naturally fail.
+	const simpleIfName = "charybdis_if"
+
+	return &upsertOption{
+		mapData: map[string]any{
+			simpleIfName: val,
+		},
+		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {
+			return builder.If(qb.EqNamed(targetColumn, simpleIfName))
+		},
+		isOptPrecondition: true,
+	}
+}
+
+// WithConditionalUpsert does a conditional update with a custom predicate and many values.
+func WithConditionalUpsert(cmp qb.Cmp, payload map[string]any) UpsertOption {
+	return &upsertOption{
+		mapData: payload,
+		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {
+			return builder.If(cmp)
+		},
+		isOptPrecondition: true,
 	}
 }
