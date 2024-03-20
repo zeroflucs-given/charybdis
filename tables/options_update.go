@@ -2,6 +2,7 @@ package tables
 
 import (
 	"github.com/scylladb/gocqlx/v2/qb"
+	"time"
 )
 
 // updateOption is our internal type that implements the core of the updateOption
@@ -51,5 +52,14 @@ func WithConditionalUpdate(cmp qb.Cmp, payload map[string]any) UpdateOption {
 			return builder.If(cmp)
 		},
 		isOptPrecondition: true,
+	}
+}
+
+// WithUpdateTTL sets the TTL option for an update.
+func WithUpdateTTL(ttl time.Duration) UpdateOption {
+	return &updateOption{
+		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {
+			return builder.TTL(ttl)
+		},
 	}
 }

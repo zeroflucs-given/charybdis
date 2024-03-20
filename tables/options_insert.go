@@ -2,6 +2,7 @@ package tables
 
 import (
 	"github.com/scylladb/gocqlx/v2/qb"
+	"time"
 )
 
 type insertOption struct {
@@ -25,5 +26,14 @@ func WithNotExists() InsertOption {
 			return builder.Unique()
 		},
 		isOptPrecondition: false,
+	}
+}
+
+// WithInsertTTL sets the TTL option for an insert.
+func WithInsertTTL(d time.Duration) InsertOption {
+	return &insertOption{
+		insertBuilderFn: func(builder *qb.InsertBuilder) *qb.InsertBuilder {
+			return builder.TTL(d)
+		},
 	}
 }
