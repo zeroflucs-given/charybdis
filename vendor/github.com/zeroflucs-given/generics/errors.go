@@ -2,6 +2,7 @@ package generics
 
 import (
 	"errors"
+	"testing"
 )
 
 // ErrEmptySlice indicates an error applying an operator to an empty slice without a suitable
@@ -31,4 +32,23 @@ func ValueOrError[T any](value T, err error) (T, error) {
 	}
 
 	return value, nil
+}
+
+// ValueOrFailTest gets a value, or fails a test if an error is
+// present. This simplifies some test code.
+func ValueOrFailTest[T any](t *testing.T, v T, err error) T {
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	return v
+}
+
+// ValueOrPanic consumes an error and panics, simplifying some code.
+// We recommend only using this in the context of tools.
+func ValueOrPanic[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
 }

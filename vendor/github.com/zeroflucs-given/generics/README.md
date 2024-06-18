@@ -122,6 +122,12 @@ Returns true if any item in the slice passes.
 #### Combinations
 Returns all combinations (note: not permutations) of items of length N over the slice.
 
+### Chunk
+Uniformly distributes (or "chunks") a slice over `n` buckets.
+
+### ChunkMap
+Uniformly distributes (or "chunks") a map over `n` buckets.
+
 ### CombinationsFiltered 
 Returns all combinations of items of length N over the slice, where the members of the slice can be filtered.
 The return type contains references back to the original input list indicies. 
