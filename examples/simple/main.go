@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
+	"go.uber.org/zap"
+
 	"github.com/zeroflucs-given/charybdis/generator"
 	"github.com/zeroflucs-given/charybdis/mapping"
 	"github.com/zeroflucs-given/charybdis/tables"
-	"go.uber.org/zap"
 )
 
 type Record struct {

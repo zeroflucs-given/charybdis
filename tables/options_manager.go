@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
-	"github.com/zeroflucs-given/charybdis/metadata"
-	"github.com/zeroflucs-given/charybdis/utils"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
+
+	"github.com/zeroflucs-given/charybdis/metadata"
+	"github.com/zeroflucs-given/charybdis/utils"
 )
 
 // WithCluster sets the cluster connection to use when working with the
@@ -19,6 +20,7 @@ func WithCluster(cluster utils.ClusterConfigGeneratorFn) ManagerOption {
 			params.SessionFactory = func(keyspace string) (*gocql.Session, error) {
 				clusterVal := cluster()
 				clusterVal.Keyspace = keyspace
+				params.queryTimeout = clusterVal.Timeout
 				return clusterVal.CreateSession()
 			}
 			return nil

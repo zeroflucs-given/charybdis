@@ -1,9 +1,10 @@
 package projections
 
 import (
+	"go.uber.org/zap"
+
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/charybdis/utils"
-	"go.uber.org/zap"
 )
 
 // projectionManagerParams are the parameters we build for a projection manager

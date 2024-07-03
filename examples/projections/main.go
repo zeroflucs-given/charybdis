@@ -4,12 +4,13 @@ import (
 	"context"
 
 	"github.com/gocql/gocql"
+	"go.uber.org/zap"
+
 	"github.com/zeroflucs-given/charybdis/generator"
 	"github.com/zeroflucs-given/charybdis/mapping"
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/charybdis/projections"
 	"github.com/zeroflucs-given/charybdis/tables"
-	"go.uber.org/zap"
 )
 
 type Record struct {

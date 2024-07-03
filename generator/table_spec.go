@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gocql/gocql"
+
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/generics"
 )

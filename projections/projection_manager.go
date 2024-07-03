@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/zeroflucs-given/charybdis/generator"
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/charybdis/tables"
 	"github.com/zeroflucs-given/generics"
-	"golang.org/x/sync/errgroup"
 )
 
 // NewProjectionManager creates a new projection manager. This provides a clean and simple way

@@ -2,7 +2,11 @@ package tables
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/gocql/gocql"
+	"go.uber.org/zap"
+	"time"
 )
 
 // Delete removes an object by binding against the structure values. Technically only the
@@ -21,11 +25,38 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 			}
 		}
 
-		return t.Table.
-			DeleteQueryContext(ctx, t.Session).
-			Consistency(t.writeConsistency).
-			BindStruct(instance).
-			Exec()
+		st := time.Now()
+		retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
+		defer cancel()
+
+		for {
+			err := t.Table.
+				DeleteQueryContext(retryCtx, t.Session).
+				Consistency(t.writeConsistency).
+				BindStruct(instance).
+				Exec()
+
+			if err == nil {
+				break
+			}
+
+			var wto *gocql.RequestErrWriteTimeout
+			retryable := errors.As(err, &wto)
+			if !retryable {
+				return err
+			}
+
+			t.Logger.Debug("delete retrying from early write timeout",
+				zap.String("consistency", wto.Consistency.String()),
+				zap.Int("received", wto.Received),
+				zap.Int("blockFor", wto.BlockFor),
+				zap.String("writeType", wto.WriteType),
+				zap.Duration("set_timeout", t.queryTimeout),
+				zap.Duration("execution_time_to_now", time.Since(st)),
+			)
+		}
+
+		return nil
 	})
 }
 
@@ -44,10 +75,37 @@ func (t *tableManagerImpl[T]) DeleteByPrimaryKey(ctx context.Context, keys ...an
 			}
 		}
 
-		return t.Table.
-			DeleteQueryContext(ctx, t.Session).
-			Consistency(t.writeConsistency).
-			Bind(keys...).
-			Exec()
+		st := time.Now()
+		retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
+		defer cancel()
+
+		for {
+			err := t.Table.
+				DeleteQueryContext(retryCtx, t.Session).
+				Consistency(t.writeConsistency).
+				Bind(keys...).
+				Exec()
+
+			if err == nil {
+				break
+			}
+
+			var wto *gocql.RequestErrWriteTimeout
+			retryable := errors.As(err, &wto)
+			if !retryable {
+				return err
+			}
+
+			t.Logger.Info("delete retrying from early write timeout",
+				zap.String("consistency", wto.Consistency.String()),
+				zap.Int("received", wto.Received),
+				zap.Int("blockFor", wto.BlockFor),
+				zap.String("writeType", wto.WriteType),
+				zap.Duration("set_timeout", t.queryTimeout),
+				zap.Duration("execution_time_to_now", time.Since(st)),
+			)
+		}
+
+		return nil
 	})
 }

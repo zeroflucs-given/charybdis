@@ -5,6 +5,7 @@ import (
 
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/scylladb/gocqlx/v2/qb"
+
 	"github.com/zeroflucs-given/charybdis/metadata"
 )
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/mitchellh/mapstructure"
+
 	"github.com/zeroflucs-given/charybdis/mapping"
 	"github.com/zeroflucs-given/charybdis/metadata"
 )

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/scylladb/gocqlx/v2/table"
+
 	"github.com/zeroflucs-given/generics"
 )
 

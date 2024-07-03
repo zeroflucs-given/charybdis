@@ -7,10 +7,11 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/scylladb/gocqlx/v2/qb"
-	"github.com/zeroflucs-given/charybdis/metadata"
-	"github.com/zeroflucs-given/generics"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
+
+	"github.com/zeroflucs-given/charybdis/metadata"
+	"github.com/zeroflucs-given/generics"
 )
 
 // NewTableManager creates a table-manager instance
@@ -89,6 +90,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 			}), func(i int, c *metadata.ColumnSpecification) qb.Cmp {
 				return qb.Eq(c.Name)
 			}),
+			queryTimeout: params.queryTimeout,
 		},
 
 		tableSpec:        params.TableSpec,

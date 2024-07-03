@@ -6,10 +6,11 @@ import (
 
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/scylladb/gocqlx/v2/qb"
-	"github.com/zeroflucs-given/charybdis/metadata"
-	"github.com/zeroflucs-given/generics"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
+
+	"github.com/zeroflucs-given/charybdis/metadata"
+	"github.com/zeroflucs-given/generics"
 )
 
 // NewViewManager creates a view-manager instance. This is essentially a table-manager

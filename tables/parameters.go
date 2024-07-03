@@ -23,6 +23,7 @@ type tableManagerParameters struct {
 	ReadConsistency  gocql.Consistency
 	WriteConsistency gocql.Consistency
 	TTL              time.Duration
+	queryTimeout     time.Duration // Populated when the cluster options are set.
 }
 
 type SessionFactory func(keyspace string) (*gocql.Session, error)

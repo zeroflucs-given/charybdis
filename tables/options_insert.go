@@ -1,8 +1,9 @@
 package tables
 
 import (
-	"github.com/scylladb/gocqlx/v2/qb"
 	"time"
+
+	"github.com/scylladb/gocqlx/v2/qb"
 )
 
 type insertOption struct {

@@ -1,6 +1,8 @@
 package tables
 
 import (
+	"time"
+
 	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/scylladb/gocqlx/v2/qb"
@@ -28,4 +30,5 @@ type baseManagerImpl[T any] struct {
 	nonKeyColumns          []string          // Non-key column names
 	partitionKeyPredicates []qb.Cmp          // Partition key predicates
 	allKeyPredicates       []qb.Cmp          // All key predicates, including partition key, in order
+	queryTimeout           time.Duration     // Timout for queries - copied through from the Session settings
 }

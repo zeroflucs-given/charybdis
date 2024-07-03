@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/zeroflucs-given/charybdis/tables"
 )
 
@@ -62,7 +63,7 @@ func TestInsertRecordBulk(t *testing.T) {
 	// Assert
 	require.NoError(t, errBulk, "Should not error bulk inserting")
 	fetched, errFetch := manager.GetByPartitionKey(ctx, "bulk-order-1")
-	require.NoError(t, errFetch, "Should not fail refetching")
+	require.NoError(t, errFetch, "Should not fail re-fetching")
 	require.NotNil(t, fetched, "Should have an object")
 	require.Equal(t, "Shipping address for 1", fetched.ShippingAddress, "Should have correct state")
 }
@@ -100,7 +101,7 @@ func TestInsertDuplicates(t *testing.T) {
 	require.Equal(t, "Some address", fetched.ShippingAddress, "Should have original state")
 }
 
-// TestInsertRecordWithTTL checks we can insert a record and its not there after a delay
+// TestInsertRecordWithTTL checks we can insert a record and that it's not there after a delay
 func TestInsertRecordWithTTL(t *testing.T) {
 	// Test globals
 	ctx := context.Background()
