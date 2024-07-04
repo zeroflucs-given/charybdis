@@ -183,6 +183,39 @@ func WithNetworkAwareKeyspaceManagement(log *zap.Logger, cluster utils.ClusterCo
 	})
 }
 
+// WithNetworkAwareKeyspaceManagement creates a network aware keyspace with global network aware replication
+// This is the equivalent of using WithNetworkAwareKeyspaceManagement with the same replication for every DC in the cluster
+func WithGlobalNetworkAwareKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGeneratorFn, replicationFactor int) tables.ManagerOption {
+	if log == nil {
+		log = zap.NewNop()
+	}
+
+	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error {
+		sess, err := gocqlx.WrapSession(cluster().CreateSession())
+		if err != nil {
+			return fmt.Errorf("error keyspace management session: %w", err)
+		}
+		defer sess.Close()
+
+		keyspaceMetadata, errMetadata := DescribeKeyspaceMetadata(sess, keyspace)
+		if errMetadata != nil {
+			return fmt.Errorf("error reading existing keyspace metadata: %w", errMetadata)
+		}
+		if keyspaceMetadata != nil {
+			return nil // Keyspace already exists
+		}
+
+		stmt := fmt.Sprintf(`CREATE KEYSPACE IF NOT EXISTS  %s WITH replication = {
+			'class' : 'NetworkTopologyStrategy',
+			'replication_factor' : %d		
+		}`, keyspace, replicationFactor)
+
+		log.With(zap.String("query", stmt)).Info("Creating keyspace, if required with global network aware replication.")
+
+		return sess.ExecStmt(stmt)
+	})
+}
+
 func installDLL(ctx context.Context, logger *zap.Logger, sess gocqlx.Session, statements []metadata.DDLOperation) error {
 outer:
 	for _, statement := range statements {
