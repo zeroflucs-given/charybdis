@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/gocql/gocql"
 	"go.uber.org/zap"
@@ -26,7 +27,9 @@ func main() {
 
 	ctx := context.TODO() // Replace with your app contexts
 	cluster := func() *gocql.ClusterConfig {
-		return gocql.NewCluster(hosts...)
+		c := gocql.NewCluster(hosts...)
+		c.Timeout = 3600 * time.Second
+		return c
 	}
 
 	log, _ := zap.NewDevelopment()
@@ -88,6 +91,7 @@ func main() {
 	}
 
 	// Query back out. We can Select, Scan, etc from this projection
+	log.Info("Fetching from projection")
 	lookup, err := proj.Projection("users_lookup").GetByPartitionKey(ctx, "APAC")
 	if err != nil {
 		panic(err)

@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/gocql/gocql"
 	"go.uber.org/zap"
-	"time"
 )
 
 // Delete removes an object by binding against the structure values. Technically only the

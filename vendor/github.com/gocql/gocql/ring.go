@@ -22,12 +22,13 @@ type ring struct {
 	hostList []*HostInfo
 	pos      uint32
 
+	// Experimental, this interface and use may change
+	tabletList []*TabletInfo
+
 	// TODO: we should store the ring metadata here also.
 }
 
 func (r *ring) rrHost() *HostInfo {
-	// TODO: should we filter hosts that get used here? These hosts will be used
-	// for the control connection, should we also provide an iterator?
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	if len(r.hostList) == 0 {
@@ -142,4 +143,12 @@ func (c *clusterMetadata) setPartitioner(partitioner string) {
 		// TODO: update other things now
 		c.partitioner = partitioner
 	}
+}
+
+// Experimental, this interface and use may change
+func (r *ring) setTablets(newTablets []*TabletInfo) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.tabletList = newTablets
 }

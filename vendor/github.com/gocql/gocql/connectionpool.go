@@ -5,11 +5,7 @@
 package gocql
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"sync"
@@ -26,53 +22,10 @@ type SetPartitioner interface {
 	SetPartitioner(partitioner string)
 }
 
-func setupTLSConfig(sslOpts *SslOptions) (*tls.Config, error) {
-	//  Config.InsecureSkipVerify | EnableHostVerification | Result
-	//  Config is nil             | true                   | verify host
-	//  Config is nil             | false                  | do not verify host
-	//  false                     | false                  | verify host
-	//  true                      | false                  | do not verify host
-	//  false                     | true                   | verify host
-	//  true                      | true                   | verify host
-	var tlsConfig *tls.Config
-	if sslOpts.Config == nil {
-		tlsConfig = &tls.Config{
-			InsecureSkipVerify: !sslOpts.EnableHostVerification,
-		}
-	} else {
-		// use clone to avoid race.
-		tlsConfig = sslOpts.Config.Clone()
-	}
-
-	if tlsConfig.InsecureSkipVerify && sslOpts.EnableHostVerification {
-		tlsConfig.InsecureSkipVerify = false
-	}
-
-	// ca cert is optional
-	if sslOpts.CaPath != "" {
-		if tlsConfig.RootCAs == nil {
-			tlsConfig.RootCAs = x509.NewCertPool()
-		}
-
-		pem, err := ioutil.ReadFile(sslOpts.CaPath)
-		if err != nil {
-			return nil, fmt.Errorf("connectionpool: unable to open CA certs: %v", err)
-		}
-
-		if !tlsConfig.RootCAs.AppendCertsFromPEM(pem) {
-			return nil, errors.New("connectionpool: failed parsing or CA certs")
-		}
-	}
-
-	if sslOpts.CertPath != "" || sslOpts.KeyPath != "" {
-		mycert, err := tls.LoadX509KeyPair(sslOpts.CertPath, sslOpts.KeyPath)
-		if err != nil {
-			return nil, fmt.Errorf("connectionpool: unable to load X509 key pair: %v", err)
-		}
-		tlsConfig.Certificates = append(tlsConfig.Certificates, mycert)
-	}
-
-	return tlsConfig, nil
+// interface to implement to receive the tablets value
+// Experimental, this interface and use may change
+type SetTablets interface {
+	SetTablets(tablets []*TabletInfo)
 }
 
 type policyConnPool struct {
@@ -87,22 +40,9 @@ type policyConnPool struct {
 }
 
 func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
-	var (
-		err        error
-		hostDialer HostDialer
-	)
+	hostDialer := cfg.HostDialer
 
-	hostDialer = cfg.HostDialer
-	var tlsConfig *tls.Config
 	if hostDialer == nil {
-		// TODO(zariel): move tls config setup into session init.
-		if cfg.SslOpts != nil {
-			tlsConfig, err = setupTLSConfig(cfg.SslOpts)
-			if err != nil {
-				return nil, err
-			}
-		}
-
 		dialer := cfg.Dialer
 		if dialer == nil {
 			d := net.Dialer{
@@ -117,7 +57,7 @@ func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
 		hostDialer = &scyllaDialer{
 			dialer:    dialer,
 			logger:    cfg.logger(),
-			tlsConfig: tlsConfig,
+			tlsConfig: cfg.getActualTLSConfig(),
 			cfg:       cfg,
 		}
 	}
@@ -126,6 +66,7 @@ func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
 		ProtoVersion:   cfg.ProtoVersion,
 		CQLVersion:     cfg.CQLVersion,
 		Timeout:        cfg.Timeout,
+		WriteTimeout:   cfg.WriteTimeout,
 		ConnectTimeout: cfg.ConnectTimeout,
 		Dialer:         cfg.Dialer,
 		HostDialer:     hostDialer,
@@ -134,7 +75,7 @@ func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
 		AuthProvider:   cfg.AuthProvider,
 		Keepalive:      cfg.SocketKeepalive,
 		Logger:         cfg.logger(),
-		tlsConfig:      tlsConfig,
+		tlsConfig:      cfg.getActualTLSConfig(),
 	}, nil
 }
 
@@ -202,6 +143,17 @@ func (p *policyConnPool) SetHosts(hosts []*HostInfo) {
 		delete(p.hostConnPools, addr)
 		go pool.Close()
 	}
+}
+
+func (p *policyConnPool) InFlight() int {
+	p.mu.RLock()
+	count := 0
+	for _, pool := range p.hostConnPools {
+		count += pool.InFlight()
+	}
+	p.mu.RUnlock()
+
+	return count
 }
 
 func (p *policyConnPool) Size() int {
@@ -311,7 +263,7 @@ func newHostConnPool(session *Session, host *HostInfo, port, size int,
 }
 
 // Pick a connection from this connection pool for the given query.
-func (pool *hostConnPool) Pick(token token) *Conn {
+func (pool *hostConnPool) Pick(token Token, qry ExecutableQuery) *Conn {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -329,10 +281,10 @@ func (pool *hostConnPool) Pick(token token) *Conn {
 		}
 	}
 
-	return pool.connPicker.Pick(token)
+	return pool.connPicker.Pick(token, qry)
 }
 
-//Size returns the number of connections currently active in the pool
+// Size returns the number of connections currently active in the pool
 func (pool *hostConnPool) Size() int {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
@@ -341,7 +293,16 @@ func (pool *hostConnPool) Size() int {
 	return size
 }
 
-//Close the connection pool
+// Size returns the number of connections currently active in the pool
+func (pool *hostConnPool) InFlight() int {
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+
+	size := pool.connPicker.InFlight()
+	return size
+}
+
+// Close the connection pool
 func (pool *hostConnPool) Close() {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
@@ -398,13 +359,7 @@ func (pool *hostConnPool) fill() {
 
 		if err != nil {
 			// probably unreachable host
-			pool.fillingStopped(true)
-
-			// this is call with the connection pool mutex held, this call will
-			// then recursively try to lock it again. FIXME
-			if pool.session.cfg.ConvictionPolicy.AddFailure(err, pool.host) {
-				go pool.session.handleNodeDown(pool.host.ConnectAddress(), pool.host.Port())
-			}
+			pool.fillingStopped(err)
 			return
 		}
 		// notify the session that this node is connected
@@ -421,7 +376,7 @@ func (pool *hostConnPool) fill() {
 		err := pool.connectMany(fillCount)
 
 		// mark the end of filling
-		pool.fillingStopped(err != nil)
+		pool.fillingStopped(err)
 
 		if err == nil && startCount > 0 {
 			// notify the session that this node is connected again
@@ -444,8 +399,11 @@ func (pool *hostConnPool) logConnectErr(err error) {
 }
 
 // transition back to a not-filling state.
-func (pool *hostConnPool) fillingStopped(hadError bool) {
-	if hadError {
+func (pool *hostConnPool) fillingStopped(err error) {
+	if err != nil {
+		if gocqlDebug {
+			pool.logger.Printf("gocql: filling stopped %q: %v\n", pool.host.ConnectAddress(), err)
+		}
 		// wait for some time to avoid back-to-back filling
 		// this provides some time between failed attempts
 		// to fill the pool for the host to recover
@@ -454,7 +412,21 @@ func (pool *hostConnPool) fillingStopped(hadError bool) {
 
 	pool.mu.Lock()
 	pool.filling = false
+	count, _ := pool.connPicker.Size()
+	host := pool.host
+	port := pool.host.Port()
 	pool.mu.Unlock()
+
+	// if we errored and the size is now zero, make sure the host is marked as down
+	// see https://github.com/gocql/gocql/issues/1614
+	if gocqlDebug {
+		pool.logger.Printf("gocql: conns of pool after stopped %q: %v\n", host.ConnectAddress(), count)
+	}
+	if err != nil && count == 0 {
+		if pool.session.cfg.ConvictionPolicy.AddFailure(err, host) {
+			pool.session.handleNodeDown(host.ConnectAddress(), port)
+		}
+	}
 }
 
 // connectMany creates new connections concurrent.
@@ -510,7 +482,7 @@ func (pool *hostConnPool) connect() (err error) {
 			}
 		}
 		if gocqlDebug {
-			pool.logger.Printf("connection failed %q: %v, reconnecting with %T\n",
+			pool.logger.Printf("gocql: connection failed %q: %v, reconnecting with %T\n",
 				pool.host.ConnectAddress(), err, reconnectionPolicy)
 		}
 		time.Sleep(reconnectionPolicy.GetInterval(i))
@@ -574,5 +546,10 @@ func (pool *hostConnPool) HandleError(conn *Conn, err error, closed bool) {
 		return
 	}
 
+	if gocqlDebug {
+		pool.logger.Printf("gocql: pool connection error %q: %v\n", conn.addr, err)
+	}
+
 	pool.connPicker.Remove(conn)
+	go pool.fill()
 }

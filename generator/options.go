@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/gocql/gocql"
@@ -113,12 +114,13 @@ func installViewFromDDL(ctx context.Context, logger *zap.Logger, sess gocqlx.Ses
 	return installDLL(ctx, logger, sess, statements)
 }
 
-// WithSimpleKeyspaceManagement does a 'CREATE KEYSPACE' command at the startup, with a default replication
-// factor. This should only be used for trivial scenarios.
-func WithSimpleKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGeneratorFn, replicationFactor int) tables.ManagerOption {
+// WithKeyspaceManagement does a 'CREATE KEYSPACE' command at the startup, with a default replication factor. This should only be used for trivial scenarios.
+func WithKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGeneratorFn, options ...KeyspaceOption) tables.ManagerOption {
 	if log == nil {
 		log = zap.NewNop()
 	}
+
+	opts := CollectKeyspaceOptions(options)
 
 	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error {
 		sess, err := gocqlx.WrapSession(cluster().CreateSession())
@@ -135,52 +137,45 @@ func WithSimpleKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGe
 			return nil // Keyspace already exists
 		}
 
-		stmt := fmt.Sprintf(`CREATE KEYSPACE IF NOT EXISTS  %s WITH replication = {
-			'class' : 'SimpleStrategy',
-			'replication_factor' : %d
-		}`, keyspace, replicationFactor)
+		var keyspaceOptionClauses []string
 
-		log.With(zap.String("query", stmt)).Info("Creating keyspace, if required with simple replication.")
+		if opts.isNetwork {
+			keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("replication = { 'class': 'NetworkTopologyStrategy', %v }", strings.Join(opts.replicationFactors, ", ")))
+		} else {
+			keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("replication = { 'class': 'SimpleStrategy', 'replication_factor': %d }", opts.replicationFactor))
+		}
+
+		version, err := GetScyllaVersion(ctx, sess)
+		if err != nil {
+			return err
+		}
+
+		if version.Major >= 6 { // Tablets exist as of Scylla v6. An unspecified `tablets` clause enables them. We default to disabled instead
+			keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("tablets = { 'enabled': %t }", opts.enableTablets))
+		}
+
+		with := strings.Join(keyspaceOptionClauses, " AND ")
+		if len(with) > 0 {
+			with = " WITH " + with
+		}
+
+		stmt := fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s%s", keyspace, with)
+
+		log.With(zap.String("query", stmt), zap.Any("scylla_version", version)).Info("Creating keyspace")
 
 		return sess.ExecStmt(stmt)
 	})
 }
 
+// WithSimpleKeyspaceManagement does a 'CREATE KEYSPACE' command at the startup, with a default replication factor.
+// This should only be used for trivial scenarios.
+func WithSimpleKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGeneratorFn, replicationFactor int) tables.ManagerOption {
+	return WithKeyspaceManagement(log, cluster, UsingReplicationFactor(replicationFactor))
+}
+
 // WithNetworkAwareKeyspaceManagement creates a network aware keyspace
 func WithNetworkAwareKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGeneratorFn, replicationFactors map[string]int32) tables.ManagerOption {
-	if log == nil {
-		log = zap.NewNop()
-	}
-
-	dataCentres := generics.Map(generics.ToKeyValues(replicationFactors), func(i int, kvp generics.KeyValuePair[string, int32]) string {
-		return fmt.Sprintf("'%v': %d", kvp.Key, kvp.Value)
-	})
-	sort.Strings(dataCentres)
-
-	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error {
-		sess, err := gocqlx.WrapSession(cluster().CreateSession())
-		if err != nil {
-			return fmt.Errorf("error keyspace management session: %w", err)
-		}
-		defer sess.Close()
-
-		keyspaceMetadata, errMetadata := DescribeKeyspaceMetadata(sess, keyspace)
-		if errMetadata != nil {
-			return fmt.Errorf("error reading existing keyspace metadata: %w", errMetadata)
-		}
-		if keyspaceMetadata != nil {
-			return nil // Keyspace already exists
-		}
-
-		stmt := fmt.Sprintf(`CREATE KEYSPACE IF NOT EXISTS  %s WITH replication = {
-			'class' : 'NetworkTopologyStrategy',
-			%v			
-		}`, keyspace, strings.Join(dataCentres, ", "))
-
-		log.With(zap.String("query", stmt)).Info("Creating keyspace, if required with network aware replication.")
-
-		return sess.ExecStmt(stmt)
-	})
+	return WithKeyspaceManagement(log, cluster, UsingNetworkReplicationFactors(replicationFactors))
 }
 
 // WithNetworkAwareKeyspaceManagement creates a network aware keyspace with global network aware replication
@@ -298,4 +293,115 @@ func DescribeKeyspaceMetadata(sess gocqlx.Session, keyspace string) (*gocql.Keys
 		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
 	}
 	return md, nil
+}
+
+type Version struct {
+	Major int
+	Minor int
+	Patch int
+	Tag   string
+}
+
+func GetScyllaVersion(ctx context.Context, sess gocqlx.Session) (Version, error) {
+	v := Version{}
+
+	var version string
+	err := sess.ContextQuery(ctx, "SELECT version FROM system.versions", nil).Consistency(gocql.One).Get(&version)
+	if err != nil {
+		return v, err
+	}
+
+	return ParseVersion(version), nil
+}
+
+func ParseVersion(version string) Version {
+	v := Version{}
+
+	parts := strings.SplitN(version, ".", 3)
+
+	parseValue := func(part string) (int, string) {
+		var t string
+
+		p := strings.SplitN(part, "-", 2)
+		if len(p) == 0 {
+			return 0, ""
+		}
+
+		i, e := strconv.ParseInt(p[0], 10, 32)
+		if e != nil {
+			return 0, p[0]
+		}
+
+		if len(p) > 1 {
+			t = p[1]
+		}
+
+		return int(i), t
+	}
+
+	var t string
+	switch len(parts) {
+	case 3:
+		v.Patch, t = parseValue(parts[2])
+		if t != "" {
+			v.Tag = t
+		}
+		fallthrough
+	case 2:
+		v.Minor, t = parseValue(parts[1])
+		if t != "" {
+			v.Tag = t
+		}
+		fallthrough
+	case 1:
+		v.Major, t = parseValue(parts[0])
+		if t != "" {
+			v.Tag = t
+		}
+	}
+
+	return v
+}
+
+type KeyspaceOption func(*KeyspaceOptions)
+
+type KeyspaceOptions struct {
+	isNetwork          bool
+	replicationFactor  int
+	replicationFactors []string
+	replicationMap     map[string]int32
+	enableTablets      bool
+}
+
+func CollectKeyspaceOptions(opts []KeyspaceOption) KeyspaceOptions {
+	o := KeyspaceOptions{}
+	for _, fn := range opts {
+		fn(&o)
+	}
+	if o.isNetwork {
+		o.replicationFactors = generics.Map(generics.ToKeyValues(o.replicationMap), func(i int, kvp generics.KeyValuePair[string, int32]) string {
+			return fmt.Sprintf("'%v': %d", kvp.Key, kvp.Value)
+		})
+		sort.Strings(o.replicationFactors)
+	}
+	return o
+}
+
+func UsingTablets() KeyspaceOption {
+	return func(o *KeyspaceOptions) {
+		o.enableTablets = true
+	}
+}
+
+func UsingReplicationFactor(factor int) KeyspaceOption {
+	return func(o *KeyspaceOptions) {
+		o.replicationFactor = factor
+	}
+}
+
+func UsingNetworkReplicationFactors(factors map[string]int32) KeyspaceOption {
+	return func(o *KeyspaceOptions) {
+		o.isNetwork = true
+		o.replicationMap = factors
+	}
 }

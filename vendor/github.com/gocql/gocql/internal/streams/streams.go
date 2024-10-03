@@ -24,6 +24,13 @@ func New(protocol int) *IDGenerator {
 	if protocol > 2 {
 		maxStreams = 32768
 	}
+	return NewLimited(maxStreams)
+}
+
+func NewLimited(maxStreams int) *IDGenerator {
+	// Round up maxStreams to a nearest
+	// multiple of 64
+	maxStreams = ((maxStreams + 63) / 64) * 64
 
 	buckets := maxStreams / 64
 	// reserve stream 0
@@ -43,13 +50,8 @@ func streamFromBucket(bucket, streamInBucket int) int {
 }
 
 func (s *IDGenerator) GetStream() (int, bool) {
-	// based closely on the java-driver stream ID generator
-	// avoid false sharing subsequent requests.
-	offset := atomic.LoadUint32(&s.offset)
-	for !atomic.CompareAndSwapUint32(&s.offset, offset, (offset+1)%s.numBuckets) {
-		offset = atomic.LoadUint32(&s.offset)
-	}
-	offset = (offset + 1) % s.numBuckets
+	// Reduce collisions by offsetting the starting point
+	offset := atomic.AddUint32(&s.offset, 1)
 
 	for i := uint32(0); i < s.numBuckets; i++ {
 		pos := int((i + offset) % s.numBuckets)
@@ -137,4 +139,8 @@ func (s *IDGenerator) Clear(stream int) (inuse bool) {
 
 func (s *IDGenerator) Available() int {
 	return s.NumStreams - int(atomic.LoadInt32(&s.inuseStreams)) - 1
+}
+
+func (s *IDGenerator) InUse() int {
+	return int(atomic.LoadInt32(&s.inuseStreams))
 }

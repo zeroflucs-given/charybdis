@@ -3,11 +3,11 @@ package tables
 import (
 	"context"
 	"errors"
-	"github.com/gocql/gocql"
-	"go.uber.org/zap"
 	"time"
 
+	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v2/qb"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 

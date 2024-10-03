@@ -8,26 +8,16 @@ readonly SCYLLA_IMAGE=${SCYLLA_IMAGE}
 set -eu -o pipefail
 
 function scylla_up() {
-  local -r exec="docker-compose exec -T"
+  local -r exec="docker compose exec -T"
 
   echo "==> Running Scylla ${SCYLLA_IMAGE}"
   docker pull ${SCYLLA_IMAGE}
-  docker-compose up -d
-
-  echo "==> Waiting for CQL port"
-  for s in $(docker-compose ps --services); do
-    until v=$(${exec} ${s} cqlsh -e "DESCRIBE SCHEMA"); do
-      echo ${v}
-      docker-compose logs --tail 10 ${s}
-      sleep 5
-    done
-  done
-  echo "==> Waiting for CQL port done"
+  docker compose up -d --wait || ( docker compose ps --format json | jq -M 'select(.Health == "unhealthy") | .Service' | xargs docker compose logs; exit 1 )
 }
 
 function scylla_down() {
   echo "==> Stopping Scylla"
-  docker-compose down
+  docker compose down
 }
 
 function scylla_restart() {
@@ -37,11 +27,28 @@ function scylla_restart() {
 
 scylla_restart
 
+sudo chmod 0777 /tmp/scylla/cql.m
+
 readonly clusterSize=1
+readonly multiNodeClusterSize=3
 readonly scylla_liveset="192.168.100.11"
+readonly scylla_tablet_liveset="192.168.100.12"
 readonly cversion="3.11.4"
 readonly proto=4
 readonly args="-gocql.timeout=60s -proto=${proto} -rf=${clusterSize} -clusterSize=${clusterSize} -autowait=2000ms -compressor=snappy -gocql.cversion=${cversion} -cluster=${scylla_liveset}"
+readonly tabletArgs="-gocql.timeout=60s -proto=${proto} -rf=1 -clusterSize=${multiNodeClusterSize} -autowait=2000ms -compressor=snappy -gocql.cversion=${cversion} -multiCluster=${scylla_tablet_liveset}"
 
-echo "==> Running $* tests with args: ${args}"
-go test -timeout=5m -race -tags="$*" ${args} ./...
+if [[ "$*" == *"tablet"* ]];
+then 
+  echo "==> Running tablet tests with args: ${tabletArgs}"
+  go test -timeout=5m -race -tags="tablet" ${tabletArgs} ./...
+fi
+
+TAGS=$*
+TAGS=${TAGS//"tablet"/}
+
+if [ ! -z "$TAGS" ];
+then
+	echo "==> Running ${TAGS} tests with args: ${args}"
+	go test -timeout=5m -race -tags="$TAGS" ${args} ./...
+fi

@@ -16,7 +16,8 @@ import (
 
 type Record struct {
 	UserID    string `cql:"user_id" cqlpartitioning:"1"`         // User ID - Partition key
-	FirstName string `cql:"first_name" cqlindex:"by_first_name"` // Name, indeexed
+	FirstName string `cql:"first_name" cqlindex:"by_first_name"` // Name, indexed
+	LastName  string `cql:"last_name"`                           // Last name
 	Region    string `cql:"region"`                              // The region a user belongs to
 	Visits    int    `cql:"visits"`                              // Our value
 }

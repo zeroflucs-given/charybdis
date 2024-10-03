@@ -50,7 +50,87 @@ func findCQLProtoExtByName(exts []cqlProtocolExtension, name string) cqlProtocol
 // Each key identifies a single extension.
 const (
 	lwtAddMetadataMarkKey = "SCYLLA_LWT_ADD_METADATA_MARK"
+	rateLimitError        = "SCYLLA_RATE_LIMIT_ERROR"
+	tabletsRoutingV1      = "TABLETS_ROUTING_V1"
 )
+
+// "tabletsRoutingV1" CQL Protocol Extension.
+// This extension, if enabled (properly negotiated), allows Scylla server
+// to send a tablet information in `custom_payload`.
+//
+// Implements cqlProtocolExtension interface.
+type tabletsRoutingV1Ext struct {
+}
+
+var _ cqlProtocolExtension = &tabletsRoutingV1Ext{}
+
+// Factory function to deserialize and create an `tabletsRoutingV1Ext` instance
+// from SUPPORTED message payload.
+func newTabletsRoutingV1Ext(supported map[string][]string) *tabletsRoutingV1Ext {
+	if _, found := supported[tabletsRoutingV1]; found {
+		return &tabletsRoutingV1Ext{}
+	}
+	return nil
+}
+
+func (ext *tabletsRoutingV1Ext) serialize() map[string]string {
+	return map[string]string{
+		tabletsRoutingV1: "",
+	}
+}
+
+func (ext *tabletsRoutingV1Ext) name() string {
+	return tabletsRoutingV1
+}
+
+// "Rate limit" CQL Protocol Extension.
+// This extension, if enabled (properly negotiated), allows Scylla server
+// to send a special kind of error.
+//
+// Implements cqlProtocolExtension interface.
+type rateLimitExt struct {
+	rateLimitErrorCode int
+}
+
+var _ cqlProtocolExtension = &rateLimitExt{}
+
+// Factory function to deserialize and create an `rateLimitExt` instance
+// from SUPPORTED message payload.
+func newRateLimitExt(supported map[string][]string) *rateLimitExt {
+	const rateLimitErrorCode = "ERROR_CODE"
+
+	if v, found := supported[rateLimitError]; found {
+		for i := range v {
+			splitVal := strings.Split(v[i], "=")
+			if splitVal[0] == rateLimitErrorCode {
+				var (
+					err       error
+					errorCode int
+				)
+				if errorCode, err = strconv.Atoi(splitVal[1]); err != nil {
+					if gocqlDebug {
+						Logger.Printf("scylla: failed to parse %s value %v: %s", rateLimitErrorCode, splitVal[1], err)
+						return nil
+					}
+				}
+				return &rateLimitExt{
+					rateLimitErrorCode: errorCode,
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (ext *rateLimitExt) serialize() map[string]string {
+	return map[string]string{
+		rateLimitError: "",
+	}
+}
+
+func (ext *rateLimitExt) name() string {
+	return rateLimitError
+}
 
 // "LWT prepared statements metadata mark" CQL Protocol Extension.
 // This extension, if enabled (properly negotiated), allows Scylla server
@@ -188,6 +268,16 @@ func parseCQLProtocolExtensions(supported map[string][]string) []cqlProtocolExte
 		exts = append(exts, lwtExt)
 	}
 
+	rateLimitExt := newRateLimitExt(supported)
+	if rateLimitExt != nil {
+		exts = append(exts, rateLimitExt)
+	}
+
+	tabletsExt := newTabletsRoutingV1Ext(supported)
+	if tabletsExt != nil {
+		exts = append(exts, tabletsExt)
+	}
+
 	return exts
 }
 
@@ -210,6 +300,7 @@ func isScyllaConn(conn *Conn) bool {
 // in a round-robin fashion.
 type scyllaConnPicker struct {
 	address                string
+	hostId                 string
 	shardAwareAddress      string
 	conns                  []*Conn
 	excessConns            []*Conn
@@ -226,6 +317,7 @@ type scyllaConnPicker struct {
 
 func newScyllaConnPicker(conn *Conn) *scyllaConnPicker {
 	addr := conn.Address()
+	hostId := conn.host.hostId
 
 	if conn.scyllaSupported.nrShards == 0 {
 		panic(fmt.Sprintf("scylla: %s not a sharded connection", addr))
@@ -250,6 +342,7 @@ func newScyllaConnPicker(conn *Conn) *scyllaConnPicker {
 
 	return &scyllaConnPicker{
 		address:                addr,
+		hostId:                 hostId,
 		shardAwareAddress:      shardAwareAddress,
 		nrShards:               conn.scyllaSupported.nrShards,
 		msbIgnore:              conn.scyllaSupported.msbIgnore,
@@ -260,7 +353,7 @@ func newScyllaConnPicker(conn *Conn) *scyllaConnPicker {
 	}
 }
 
-func (p *scyllaConnPicker) Pick(t token) *Conn {
+func (p *scyllaConnPicker) Pick(t Token, qry ExecutableQuery) *Conn {
 	if len(p.conns) == 0 {
 		return nil
 	}
@@ -275,11 +368,44 @@ func (p *scyllaConnPicker) Pick(t token) *Conn {
 		return nil
 	}
 
-	idx := p.shardOf(mmt)
+	idx := -1
+
+	for _, conn := range p.conns {
+		if conn == nil {
+			continue
+		}
+
+		if qry != nil && conn.isTabletSupported() {
+			tablets := conn.session.getTablets()
+
+			// Search for tablets with Keyspace and Table from the Query
+			l, r := findTablets(tablets, qry.Keyspace(), qry.Table())
+
+			if l != -1 {
+				tablet := findTabletForToken(tablets, mmt, l, r)
+
+				for _, replica := range tablet.replicas {
+					if replica.hostId.String() == p.hostId {
+						idx = replica.shardId
+					}
+				}
+			}
+		}
+
+		break
+	}
+
+	if idx == -1 {
+		idx = p.shardOf(mmt)
+	}
+
 	if c := p.conns[idx]; c != nil {
 		// We have this shard's connection
 		// so let's give it to the caller.
 		// But only if it's not loaded too much and load is well distributed.
+		if qry != nil && qry.IsLWT() {
+			return c
+		}
 		return p.maybeReplaceWithLessBusyConnection(c)
 	}
 	return p.leastBusyConn()
@@ -290,7 +416,7 @@ func (p *scyllaConnPicker) maybeReplaceWithLessBusyConnection(c *Conn) *Conn {
 		return c
 	}
 	alternative := p.leastBusyConn()
-	if alternative == nil || alternative.AvailableStreams() * 120 > c.AvailableStreams() * 100 {
+	if alternative == nil || alternative.AvailableStreams()*120 > c.AvailableStreams()*100 {
 		return c
 	} else {
 		return alternative
@@ -298,7 +424,7 @@ func (p *scyllaConnPicker) maybeReplaceWithLessBusyConnection(c *Conn) *Conn {
 }
 
 func isHeavyLoaded(c *Conn) bool {
-    return c.streams.NumStreams / 2 > c.AvailableStreams();
+	return c.streams.NumStreams/2 > c.AvailableStreams()
 }
 
 func (p *scyllaConnPicker) leastBusyConn() *Conn {
@@ -417,6 +543,16 @@ func (p *scyllaConnPicker) Remove(conn *Conn) {
 		p.conns[shard] = nil
 		p.nrConns--
 	}
+}
+
+func (p *scyllaConnPicker) InFlight() int {
+	result := 0
+	for _, conn := range p.conns {
+		if conn != nil {
+			result = result + (conn.streams.InUse())
+		}
+	}
+	return result
 }
 
 func (p *scyllaConnPicker) Size() (int, int) {
@@ -645,14 +781,16 @@ type ScyllaShardAwareDialer struct {
 	net.Dialer
 }
 
-func (d *ScyllaShardAwareDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+func (d *ScyllaShardAwareDialer) DialContext(ctx context.Context, network, addr string) (conn net.Conn, err error) {
 	sourcePort := ScyllaGetSourcePort(ctx)
-	localAddr, err := net.ResolveTCPAddr(network, fmt.Sprintf(":%d", sourcePort))
+	if sourcePort == 0 {
+		return d.Dialer.DialContext(ctx, network, addr)
+	}
+	dialerWithLocalAddr := d.Dialer
+	dialerWithLocalAddr.LocalAddr, err = net.ResolveTCPAddr(network, fmt.Sprintf(":%d", sourcePort))
 	if err != nil {
 		return nil, err
 	}
-	var dialerWithLocalAddr net.Dialer = d.Dialer
-	dialerWithLocalAddr.LocalAddr = localAddr
 
 	return dialerWithLocalAddr.DialContext(ctx, network, addr)
 }
@@ -723,7 +861,7 @@ func ScyllaGetSourcePort(ctx context.Context) uint16 {
 
 // Returns a partitioner specific to the table, or "nil"
 // if the cluster-global partitioner should be used
-func scyllaGetTablePartitioner(session *Session, keyspaceName, tableName string) (partitioner, error) {
+func scyllaGetTablePartitioner(session *Session, keyspaceName, tableName string) (Partitioner, error) {
 	isCdc, err := scyllaIsCdcTable(session, keyspaceName, tableName)
 	if err != nil {
 		return nil, err
