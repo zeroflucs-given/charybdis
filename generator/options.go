@@ -365,9 +365,9 @@ func CollectKeyspaceOptions(opts []KeyspaceOption) KeyspaceOptions {
 	return o
 }
 
-func UsingTablets() KeyspaceOption {
+func UsingTablets(enable bool) KeyspaceOption {
 	return func(o *KeyspaceOptions) {
-		o.enableTablets = true
+		o.enableTablets = enable
 	}
 }
 
