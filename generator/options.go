@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/gocql/gocql"
@@ -15,7 +13,6 @@ import (
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/charybdis/tables"
 	"github.com/zeroflucs-given/charybdis/utils"
-	"github.com/zeroflucs-given/generics"
 )
 
 // WithAutomaticTableManagement automatically performs management of tables and structures on startup
@@ -139,6 +136,11 @@ func WithKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGenerato
 
 		var keyspaceOptionClauses []string
 
+		err = CreateKeyspace(ctx, sess, keyspace, UsingOptions(opts), UsingLogger(log))
+		if err != nil {
+			return fmt.Errorf("creating keyspace %q: %w", keyspace, err)
+		}
+
 		replicationStrategy := "SimpleStrategy"
 		if opts.isNetwork {
 			replicationStrategy = "NetworkTopologyStrategy"
@@ -150,7 +152,7 @@ func WithKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGenerato
 			keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("replication = { 'class': '%s', 'replication_factor': %d }", replicationStrategy, opts.replicationFactor))
 		}
 
-		version, err := GetScyllaVersion(ctx, sess)
+		version, err := metadata.GetScyllaVersion(ctx, sess)
 		if err != nil {
 			return err
 		}
@@ -271,122 +273,4 @@ func DescribeKeyspaceMetadata(sess gocqlx.Session, keyspace string) (*gocql.Keys
 		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
 	}
 	return md, nil
-}
-
-type Version struct {
-	Major int
-	Minor int
-	Patch int
-	Tag   string
-}
-
-func GetScyllaVersion(ctx context.Context, sess gocqlx.Session) (Version, error) {
-	v := Version{}
-
-	var version string
-	err := sess.ContextQuery(ctx, "SELECT version FROM system.versions", nil).Consistency(gocql.One).Get(&version)
-	if err != nil {
-		return v, err
-	}
-
-	return ParseVersion(version), nil
-}
-
-func ParseVersion(version string) Version {
-	v := Version{}
-
-	parts := strings.SplitN(version, ".", 3)
-
-	parseValue := func(part string) (int, string) {
-		var t string
-
-		p := strings.SplitN(part, "-", 2)
-		if len(p) == 0 {
-			return 0, ""
-		}
-
-		i, e := strconv.ParseInt(p[0], 10, 32)
-		if e != nil {
-			return 0, p[0]
-		}
-
-		if len(p) > 1 {
-			t = p[1]
-		}
-
-		return int(i), t
-	}
-
-	var t string
-	switch len(parts) {
-	case 3:
-		v.Patch, t = parseValue(parts[2])
-		if t != "" {
-			v.Tag = t
-		}
-		fallthrough
-	case 2:
-		v.Minor, t = parseValue(parts[1])
-		if t != "" {
-			v.Tag = t
-		}
-		fallthrough
-	case 1:
-		v.Major, t = parseValue(parts[0])
-		if t != "" {
-			v.Tag = t
-		}
-	}
-
-	return v
-}
-
-type KeyspaceOption func(*KeyspaceOptions)
-
-type KeyspaceOptions struct {
-	isNetwork          bool
-	replicationFactor  int
-	replicationFactors []string
-	replicationMap     map[string]int32
-	enableTablets      bool
-}
-
-func CollectKeyspaceOptions(opts []KeyspaceOption) KeyspaceOptions {
-	o := KeyspaceOptions{}
-	for _, fn := range opts {
-		fn(&o)
-	}
-	if o.isNetwork {
-		o.replicationFactors = generics.Map(generics.ToKeyValues(o.replicationMap), func(i int, kvp generics.KeyValuePair[string, int32]) string {
-			return fmt.Sprintf("'%v': %d", kvp.Key, kvp.Value)
-		})
-		sort.Strings(o.replicationFactors)
-	}
-	return o
-}
-
-func UsingTablets(enable bool) KeyspaceOption {
-	return func(o *KeyspaceOptions) {
-		o.enableTablets = enable
-	}
-}
-
-func UsingReplicationFactor(factor int) KeyspaceOption {
-	return func(o *KeyspaceOptions) {
-		o.replicationFactor = factor
-	}
-}
-
-func UsingNetworkReplicationFactors(factors map[string]int32) KeyspaceOption {
-	return func(o *KeyspaceOptions) {
-		o.isNetwork = true
-		o.replicationMap = factors
-	}
-}
-
-func UsingNetworkReplication(factor int) KeyspaceOption {
-	return func(o *KeyspaceOptions) {
-		o.isNetwork = true
-		o.replicationFactor = factor
-	}
 }
