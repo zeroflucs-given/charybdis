@@ -29,6 +29,9 @@ func GetScyllaVersion(ctx context.Context, sess gocqlx.Session) (Version, error)
 	return parseVersion(version), nil
 }
 
+// Parse version information from a string
+// The general form of a version string that's accepted is xx[.yy[.zz]][-ww]
+// (this matches all known Scylla version strings to date)
 func parseVersion(version string) Version {
 	v := Version{}
 

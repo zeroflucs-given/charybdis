@@ -111,7 +111,7 @@ func installViewFromDDL(ctx context.Context, logger *zap.Logger, sess gocqlx.Ses
 	return installDLL(ctx, logger, sess, statements)
 }
 
-// WithKeyspaceManagement does a 'CREATE KEYSPACE' command at the startup, with a default replication factor. This should only be used for trivial scenarios.
+// WithKeyspaceManagement does a 'CREATE KEYSPACE' command at the startup, with replication factor and other options passed in as args.
 func WithKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGeneratorFn, options ...KeyspaceOption) tables.ManagerOption {
 	if log == nil {
 		log = zap.NewNop()
@@ -122,55 +122,24 @@ func WithKeyspaceManagement(log *zap.Logger, cluster utils.ClusterConfigGenerato
 	return tables.WithStartupFn(func(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error {
 		sess, err := gocqlx.WrapSession(cluster().CreateSession())
 		if err != nil {
-			return fmt.Errorf("error keyspace management session: %w", err)
+			return fmt.Errorf("keyspace management session: %w", err)
 		}
 		defer sess.Close()
 
 		keyspaceMetadata, errMetadata := DescribeKeyspaceMetadata(sess, keyspace)
 		if errMetadata != nil {
-			return fmt.Errorf("error reading existing keyspace metadata: %w", errMetadata)
+			return fmt.Errorf("reading existing keyspace metadata: %w", errMetadata)
 		}
 		if keyspaceMetadata != nil {
 			return nil // Keyspace already exists
 		}
-
-		var keyspaceOptionClauses []string
 
 		err = CreateKeyspace(ctx, sess, keyspace, UsingOptions(opts), UsingLogger(log))
 		if err != nil {
 			return fmt.Errorf("creating keyspace %q: %w", keyspace, err)
 		}
 
-		replicationStrategy := "SimpleStrategy"
-		if opts.isNetwork {
-			replicationStrategy = "NetworkTopologyStrategy"
-		}
-
-		if len(opts.replicationFactors) > 0 {
-			keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("replication = { 'class': '%s', %s }", replicationStrategy, strings.Join(opts.replicationFactors, ", ")))
-		} else if opts.replicationFactor > 0 {
-			keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("replication = { 'class': '%s', 'replication_factor': %d }", replicationStrategy, opts.replicationFactor))
-		}
-
-		version, err := metadata.GetScyllaVersion(ctx, sess)
-		if err != nil {
-			return err
-		}
-
-		if version.Major >= 6 { // Tablets exist as of Scylla v6. An unspecified `tablets` clause enables them. We default to disabled instead
-			keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("tablets = { 'enabled': %t }", opts.enableTablets))
-		}
-
-		with := strings.Join(keyspaceOptionClauses, " AND ")
-		if len(with) > 0 {
-			with = " WITH " + with
-		}
-
-		stmt := fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s%s", keyspace, with)
-
-		log.With(zap.String("query", stmt), zap.Any("scylla_version", version)).Info("Creating keyspace")
-
-		return sess.ExecStmt(stmt)
+		return nil
 	})
 }
 

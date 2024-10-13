@@ -25,7 +25,10 @@ type KeyspaceOptions struct {
 }
 
 func CollectKeyspaceOptions(opts []KeyspaceOption) KeyspaceOptions {
-	o := KeyspaceOptions{}
+	// home defaults
+	o := KeyspaceOptions{
+		replicationFactor: 1, // A factor of 1 should only be used in testing, never prod
+	}
 	for _, fn := range opts {
 		fn(&o)
 	}
@@ -93,7 +96,7 @@ func CreateKeyspace(ctx context.Context, sess gocqlx.Session, keyspace string, o
 
 	if len(opts.replicationFactors) > 0 {
 		keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("replication = { 'class': '%s', %s }", replicationStrategy, strings.Join(opts.replicationFactors, ", ")))
-	} else if opts.replicationFactor > 0 {
+	} else {
 		keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("replication = { 'class': '%s', 'replication_factor': %d }", replicationStrategy, opts.replicationFactor))
 	}
 
