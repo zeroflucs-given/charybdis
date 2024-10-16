@@ -3,14 +3,16 @@ package generator
 import (
 	"context"
 	"fmt"
-	"github.com/scylladb/gocqlx/v2"
-	"github.com/zeroflucs-given/charybdis/metadata"
-	"github.com/zeroflucs-given/generics"
-	"go.uber.org/zap"
 	"maps"
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/scylladb/gocqlx/v2"
+	"go.uber.org/zap"
+
+	"github.com/zeroflucs-given/charybdis/metadata"
+	"github.com/zeroflucs-given/generics"
 )
 
 type KeyspaceOption func(*KeyspaceOptions)

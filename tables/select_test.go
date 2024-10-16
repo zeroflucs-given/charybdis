@@ -249,36 +249,101 @@ func TestSelectWithSortOrder(t *testing.T) {
 	require.NoError(t, err, "Should not error starting up")
 
 	// Arrange
-	orders := 500
-	itemsPerOrder := 10
-	toInsert := make([]*OrderItem, 0, orders*itemsPerOrder)
-	for order := 0; order < orders; order++ {
-		for item := 0; item < itemsPerOrder; item++ {
-			toInsert = append(toInsert, &OrderItem{
-				OrderID:  fmt.Sprintf("ix-order-%02d", order),
-				ItemID:   fmt.Sprintf("ix-item-%02d", item),
-				Quantity: (order * item) % 27,
-			})
-		}
+	toInsert := []*OrderItem{
+		{
+			OrderID:  "sort-order-01",
+			ItemID:   "sort-item-02",
+			Quantity: 3,
+		},
+		{
+			OrderID:  "sort-order-01",
+			ItemID:   "sort-item-03",
+			Quantity: 1,
+		},
+		{
+			OrderID:  "sort-order-02",
+			ItemID:   "sort-item-03",
+			Quantity: 2,
+		},
+		{
+			OrderID:  "sort-order-01",
+			ItemID:   "sort-item-01",
+			Quantity: 5,
+		},
 	}
+
 	errInsert := manager.InsertBulk(ctx, toInsert, -1)
 	require.NoError(t, errInsert, "Should not error inserting")
 
-	// // Act
-	// recordCount := 0
-	// expectMinItem := "ix-item-00"
-	// expectMaxItem := "ix-item-09"
-	// errSelect := manager.SelectByIndexedColumn(ctx, func(ctx context.Context, records []*OrderItem, pageState []byte, newPageState []byte) (bool, error) {
-	// 	recordCount += len(records)
-	// 	for _, rec := range records {
-	// 		if rec.ItemID != expectItem {
-	// 			return false, fmt.Errorf("wrong item ID: %v", rec.ItemID)
-	// 		}
-	// 	}
-	// 	return true, nil
-	// }, "item_id", "ix-item-05")
+	// Act
+	recordCount := 0
+	lastItem := ""
+	errSelect := manager.SelectByPartitionKey(ctx, func(ctx context.Context, records []*OrderItem, pageState []byte, newPageState []byte) (bool, error) {
+		recordCount += len(records)
+		for _, rec := range records {
+			if rec.ItemID < lastItem {
+				return false, fmt.Errorf("quantity out of order: %s -> %s", lastItem, rec.ItemID)
+			}
+			lastItem = rec.ItemID
+		}
+		return true, nil
+	}, []tables.QueryOption{tables.WithSort("item_id", 1)}, "sort-order-01")
 
-	// // Assert
-	// require.NoError(t, errSelect, "Should not error selecting")
-	// require.Equal(t, 900, recordCount, "Should have right number of records.")
+	// Assert
+	require.NoError(t, errSelect, "Should not error selecting")
+	require.Equal(t, 3, recordCount, "Should have correct number of records.")
+}
+
+// TestSelectWithSortOrder checks we can get values sorted by their indexed columns
+func TestSelectWithColumn(t *testing.T) {
+	// Test globals
+	ctx := context.Background()
+	manager, err := tables.NewTableManager[OrderItem](ctx,
+		tables.WithCluster(testClusterConfig),
+		tables.WithKeyspace(TestKeyspace),
+		tables.WithTableSpecification(OrderItemsTableSpec))
+	require.NoError(t, err, "Should not error starting up")
+
+	// Arrange
+	toInsert := []*OrderItem{
+		{
+			OrderID:  "col-order-01",
+			ItemID:   "col-item-02",
+			Quantity: 3,
+		},
+		{
+			OrderID:  "col-order-01",
+			ItemID:   "col-item-03",
+			Quantity: 1,
+		},
+		{
+			OrderID:  "col-order-02",
+			ItemID:   "col-item-03",
+			Quantity: 2,
+		},
+		{
+			OrderID:  "col-order-01",
+			ItemID:   "col-item-01",
+			Quantity: 5,
+		},
+	}
+
+	errInsert := manager.InsertBulk(ctx, toInsert, -1)
+	require.NoError(t, errInsert, "Should not error inserting")
+
+	// Act
+	recordCount := 0
+	errSelect := manager.SelectByPartitionKey(ctx, func(ctx context.Context, records []*OrderItem, pageState []byte, newPageState []byte) (bool, error) {
+		recordCount += len(records)
+		for _, rec := range records {
+			if rec.Quantity != 0 {
+				return false, fmt.Errorf("expected quantity not zero: %d", rec.Quantity)
+			}
+		}
+		return true, nil
+	}, []tables.QueryOption{tables.WithColumns("item_id")}, "col-order-01")
+
+	// Assert
+	require.NoError(t, errSelect, "Should not error selecting")
+	require.Equal(t, 3, recordCount, "Should have correct number of records.")
 }

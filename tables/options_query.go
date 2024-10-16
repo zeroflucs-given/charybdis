@@ -9,6 +9,7 @@ import (
 type queryOption struct {
 	queryMutator   func(q *gocqlx.Queryx) *gocqlx.Queryx
 	queryBuilderFn func(builder *qb.SelectBuilder) *qb.SelectBuilder
+	queryColumns   []string
 }
 
 // applyToSelectBuilder applies this option to the given select builder
@@ -25,6 +26,10 @@ func (s *queryOption) applyToBuilder(builder *qb.SelectBuilder) *qb.SelectBuilde
 		return builder
 	}
 	return s.queryBuilderFn(builder)
+}
+
+func (s *queryOption) columns() []string {
+	return s.queryColumns
 }
 
 // WithPaging sets the paging state to enable resuming a query on a revisit
@@ -45,5 +50,12 @@ func WithSort(column string, order int) QueryOption {
 			}
 			return builder.OrderBy(column, order > 0)
 		},
+	}
+}
+
+// WithColumns specifies the columns to return in a query result
+func WithColumns(columns ...string) QueryOption {
+	return &queryOption{
+		queryColumns: columns,
 	}
 }
