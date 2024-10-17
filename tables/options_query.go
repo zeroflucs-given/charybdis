@@ -59,3 +59,42 @@ func WithColumns(columns ...string) QueryOption {
 		queryColumns: columns,
 	}
 }
+
+// WithPredicates specifies the columns to test against in a query.
+// This must be paired with a `WithBindings` call to match the specific values in the test
+func WithPredicates(predicates ...qb.Cmp) QueryOption {
+	return &queryOption{
+		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
+			if len(predicates) == 0 {
+				return builder
+			}
+			return builder.Where(predicates...)
+		},
+	}
+}
+
+// WithBindings specifies the values of keys to query against (ie the bound values of keys in a `where` clause)
+// This must be paired with a `WithPredicates` call to match the column names that the values relate to
+func WithBindings(keys ...any) QueryOption {
+	return &queryOption{
+		queryMutator: func(query *gocqlx.Queryx) *gocqlx.Queryx {
+			if len(keys) == 0 {
+				return query
+			}
+			return query.Bind(keys...)
+		},
+	}
+}
+
+// WithKey creates a query option that translates to a `name = value` statement in a `where` clause.
+// Note, don't use inbetween a WithPredicates and WithBindings option - that will mess up key -> value alignment
+func WithKey(name string, value any) QueryOption {
+	return &queryOption{
+		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
+			return builder.Where(qb.Eq(name))
+		},
+		queryMutator: func(query *gocqlx.Queryx) *gocqlx.Queryx {
+			return query.Bind(value)
+		},
+	}
+}
