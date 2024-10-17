@@ -140,6 +140,7 @@ type QueryOption interface {
 	applyToQuery(query *gocqlx.Queryx) *gocqlx.Queryx
 	applyToBuilder(builder *qb.SelectBuilder) *qb.SelectBuilder
 	columns() []string // The columns to return from the query - if this returns 0 items, all columns are returned
+	bindings() []any   // Values bound to a query
 }
 
 // UpdateOption is an interface that describes options that can mutate an update

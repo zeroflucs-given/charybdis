@@ -130,17 +130,24 @@ func (t *baseManagerImpl[T]) basicQueryBuilder(opts ...QueryOption) *qb.SelectBu
 // Construct a (partial) query using the given options
 func (t *baseManagerImpl[T]) basicQueryMutator(ctx context.Context, stmt string, names []string, opts ...QueryOption) *gocqlx.Queryx {
 	query := t.Session.ContextQuery(ctx, stmt, names).Consistency(t.readConsistency)
+
+	var bindings []any
 	for _, opt := range opts {
 		query = opt.applyToQuery(query)
+		bindings = append(bindings, opt.bindings())
 	}
+	query.Bind(bindings...)
 	return query
 }
 
 // Construct a (partial) query using the given options & session
 func (t *baseManagerImpl[T]) sessionQueryMutator(ctx context.Context, sess gocqlx.Session, stmt string, names []string, opts ...QueryOption) *gocqlx.Queryx {
 	query := sess.ContextQuery(ctx, stmt, names)
+	var bindings []any
 	for _, opt := range opts {
 		query = opt.applyToQuery(query)
+		bindings = append(bindings, opt.bindings())
 	}
+	query.Bind(bindings...)
 	return query
 }

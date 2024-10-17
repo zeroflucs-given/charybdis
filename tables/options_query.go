@@ -10,6 +10,7 @@ type queryOption struct {
 	queryMutator   func(q *gocqlx.Queryx) *gocqlx.Queryx
 	queryBuilderFn func(builder *qb.SelectBuilder) *qb.SelectBuilder
 	queryColumns   []string
+	queryBindings  []any
 }
 
 // applyToSelectBuilder applies this option to the given select builder
@@ -30,6 +31,10 @@ func (s *queryOption) applyToBuilder(builder *qb.SelectBuilder) *qb.SelectBuilde
 
 func (s *queryOption) columns() []string {
 	return s.queryColumns
+}
+
+func (s *queryOption) bindings() []any {
+	return s.queryBindings
 }
 
 // WithPaging sets the paging state to enable resuming a query on a revisit
@@ -75,14 +80,9 @@ func WithPredicates(predicates ...qb.Cmp) QueryOption {
 
 // WithBindings specifies the values of keys to query against (ie the bound values of keys in a `where` clause)
 // This must be paired with a `WithPredicates` call to match the column names that the values relate to
-func WithBindings(keys ...any) QueryOption {
+func WithBindings(bindings ...any) QueryOption {
 	return &queryOption{
-		queryMutator: func(query *gocqlx.Queryx) *gocqlx.Queryx {
-			if len(keys) == 0 {
-				return query
-			}
-			return query.Bind(keys...)
-		},
+		queryBindings: bindings,
 	}
 }
 
@@ -93,9 +93,7 @@ func WithKey(name string, value any) QueryOption {
 		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
 			return builder.Where(qb.Eq(name))
 		},
-		queryMutator: func(query *gocqlx.Queryx) *gocqlx.Queryx {
-			return query.Bind(value)
-		},
+		queryBindings: []any{value},
 	}
 }
 
@@ -106,8 +104,6 @@ func WithCondition(cond qb.Cmp, value any) QueryOption {
 		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
 			return builder.Where(cond)
 		},
-		queryMutator: func(query *gocqlx.Queryx) *gocqlx.Queryx {
-			return query.Bind(value)
-		},
+		queryBindings: []any{value},
 	}
 }
