@@ -62,3 +62,52 @@ func TestDeleteByKey(t *testing.T) {
 	require.NoError(t, errGet, "Should not error fetching")
 	require.Nil(t, fetched, "Should yield no result after delete")
 }
+
+// TestDeleteByKey checks we can delete by primary key
+func TestDeleteUsingOptions(t *testing.T) {
+	// Test globals
+	ctx := context.Background()
+	manager, err := tables.NewTableManager[OrderItem](
+		ctx,
+		tables.WithCluster(testClusterConfig),
+		tables.WithKeyspace(TestKeyspace),
+		tables.WithTableSpecification(OrderItemsTableSpec),
+	)
+
+	require.NoError(t, err, "Should not error starting up")
+
+	// Test data
+	toInsert := []*OrderItem{
+		{
+			OrderID:  "del-opt-order-01",
+			ItemID:   "del-opt-item-02",
+			Quantity: 3,
+		},
+		{
+			OrderID:  "del-opt-order-01",
+			ItemID:   "del-opt-item-03",
+			Quantity: 1,
+		},
+		{
+			OrderID:  "del-opt-order-02",
+			ItemID:   "del-opt-item-03",
+			Quantity: 2,
+		},
+		{
+			OrderID:  "del-opt-order-01",
+			ItemID:   "del-opt-item-01",
+			Quantity: 5,
+		},
+	}
+
+	errInsert := manager.InsertBulk(ctx, toInsert, -1)
+	require.NoError(t, errInsert, "Should not error inserting test data")
+
+	errDelete := manager.DeleteUsingOptions(ctx, tables.WithDeletionKey("order_id", "del-opt-order-02"))
+	require.NoError(t, errDelete, "Should not error deleting")
+
+	// Assert
+	fetched, errGet := manager.GetByPartitionKey(ctx, "del-opt-order-02")
+	require.NoError(t, errGet, "Should not error fetching")
+	require.Nil(t, fetched, "Should yield no result after delete")
+}

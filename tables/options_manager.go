@@ -145,6 +145,7 @@ type tableManagerOption struct {
 	parametersHook tableParameterMutator
 	startHook      TableManagerStartupFn
 	insertOpts     []InsertOption
+	deleteOpts     []DeleteOption
 	updateOpts     []UpdateOption
 	upsertOpts     []UpsertOption
 }
@@ -168,6 +169,10 @@ func (t *tableManagerOption) onStart(ctx context.Context, keyspace string, table
 
 func (t tableManagerOption) insertOptions() []InsertOption {
 	return t.insertOpts
+}
+
+func (t tableManagerOption) deleteOptions() []DeleteOption {
+	return t.deleteOpts
 }
 
 func (t tableManagerOption) updateOptions() []UpdateOption {

@@ -30,7 +30,7 @@ func (t *baseManagerImpl[T]) GetByPrimaryKey(ctx context.Context, primaryKeys ..
 	})
 }
 
-// GetUsingOptions provides a method to fetch rows using QueryOptions to determine keys search & columns returned, etc
+// GetUsingOptions provides a method to fetch the first row found using QueryOptions to determine keys search & columns returned, etc
 func (t *baseManagerImpl[T]) GetUsingOptions(ctx context.Context, opts ...QueryOption) (*T, error) {
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetUsingOptions", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		var target T

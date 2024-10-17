@@ -347,3 +347,59 @@ func TestSelectWithColumn(t *testing.T) {
 	require.NoError(t, errSelect, "Should not error selecting")
 	require.Equal(t, 3, recordCount, "Should have correct number of records.")
 }
+
+// TestSelectWithSortOrder checks we can get values sorted by their indexed columns
+func TestGetUsingOptions(t *testing.T) {
+	// Test globals
+	ctx := context.Background()
+	manager, err := tables.NewTableManager[OrderItem](
+		ctx,
+		tables.WithCluster(testClusterConfig),
+		tables.WithKeyspace(TestKeyspace),
+		tables.WithTableSpecification(OrderItemsTableSpec),
+	)
+	require.NoError(t, err, "Should not error starting up")
+
+	// Arrange
+	toInsert := []*OrderItem{
+		{
+			OrderID:  "opt-order-01",
+			ItemID:   "opt-item-02",
+			Quantity: 3,
+		},
+		{
+			OrderID:  "opt-order-01",
+			ItemID:   "opt-item-03",
+			Quantity: 1,
+		},
+		{
+			OrderID:  "opt-order-02",
+			ItemID:   "opt-item-03",
+			Quantity: 2,
+		},
+		{
+			OrderID:  "opt-order-01",
+			ItemID:   "opt-item-01",
+			Quantity: 5,
+		},
+	}
+
+	errInsert := manager.InsertBulk(ctx, toInsert, -1)
+	require.NoError(t, errInsert, "Should not error inserting test data")
+
+	// tests
+
+	res, err := manager.GetUsingOptions(ctx, tables.WithKey("order_id", "opt-order-01"), tables.WithKey("item_id", "opt-item-03"))
+	require.NoError(t, err, "Should not error getting row")
+	require.Equal(t, 1, res.Quantity, "expected quantity to be 1")
+
+	res, err = manager.GetUsingOptions(ctx, tables.WithKey("order_id", "opt-order-01"))
+	require.NoError(t, err, "Should not error getting row")
+	require.Equal(t, 5, res.Quantity, "expected quantity to be 5") // oughta be the latest value inserted with that key
+
+	// Same as the first test, just specified with alternate options
+	res, err = manager.GetUsingOptions(ctx, tables.WithColumnsEqual("order_id", "item_id"), tables.WithBindings("opt-order-01", "opt-item-03"))
+	require.NoError(t, err, "Should not error getting row")
+	require.Equal(t, 1, res.Quantity, "expected quantity to be 1")
+
+}

@@ -3,6 +3,7 @@ package tables
 import (
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/scylladb/gocqlx/v2/qb"
+	"github.com/zeroflucs-given/generics"
 )
 
 // queryOption is a simple base type for providing query mutations
@@ -78,8 +79,26 @@ func WithPredicates(predicates ...qb.Cmp) QueryOption {
 	}
 }
 
+// WithColumnsEqual specifies the columns to test against in a query.
+// This must be paired with a `WithBindings` call to match the specific values in the test
+func WithColumnsEqual(columns ...string) QueryOption {
+	return &queryOption{
+		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
+			if len(columns) == 0 {
+				return builder
+			}
+
+			predicates := generics.Map(columns, func(index int, column string) qb.Cmp {
+				return qb.Eq(column)
+			})
+
+			return builder.Where(predicates...)
+		},
+	}
+}
+
 // WithBindings specifies the values of keys to query against (ie the bound values of keys in a `where` clause)
-// This must be paired with a `WithPredicates` call to match the column names that the values relate to
+// This must be paired with a `WithPredicates` or `WithColumnsEqual` call to match the column names that the values relate to
 func WithBindings(bindings ...any) QueryOption {
 	return &queryOption{
 		queryBindings: bindings,

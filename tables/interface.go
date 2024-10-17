@@ -20,11 +20,14 @@ type TableManager[T any] interface {
 	// CountByCustomQuery gets the number of records in a custom query.
 	CountByCustomQuery(ctx context.Context, queryBuilder QueryBuilderFn) (int64, error)
 
-	// Delete removes an object. Technically only the object keys need be present.
+	// Delete removes an object. Only the object keys need be present in T.
 	Delete(ctx context.Context, instance *T) error
 
 	// DeleteByPrimaryKey removes a single row by its primary key values. Keys must be specified in order.
 	DeleteByPrimaryKey(ctx context.Context, keys ...any) error
+
+	// DeleteUsingOptions removes rows/columns as selected by the supplied options
+	DeleteUsingOptions(ctx context.Context, opts ...DeleteOption) error
 
 	// GetByPartitionKey gets the first record from a partition. If there are multiple records, the
 	// behaviour is to return the first record by clustering order. Equivalent to GetByPrimaryKey
@@ -135,6 +138,13 @@ type InsertOption interface {
 	isPrecondition() bool
 }
 
+type DeleteOption interface {
+	applyToQuery(query *gocqlx.Queryx) *gocqlx.Queryx
+	columns() []string    // The columns to delete in matched rows
+	predicates() []qb.Cmp // Predicate tests used for the query (ie the `where` clause conditions)
+	bindings() []any      // Values bound to a query
+}
+
 // QueryOption is an interface that describes options that can mutate a scan.
 type QueryOption interface {
 	applyToQuery(query *gocqlx.Queryx) *gocqlx.Queryx
@@ -168,6 +178,7 @@ type ManagerOption interface {
 	insertOptions() []InsertOption
 	updateOptions() []UpdateOption
 	upsertOptions() []UpsertOption
+	deleteOptions() []DeleteOption
 	beforeChange(ctx context.Context, rec any) error
 	afterChange(ctx context.Context, rec any) error
 }

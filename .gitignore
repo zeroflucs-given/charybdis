@@ -22,6 +22,6 @@ thumbs.db
 # Coverage output and HTML
 coverage.html
 coverage.out
-coevrage_local.out
+coverage_local.out
 *.lcov
 *.pprof
