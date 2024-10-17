@@ -134,7 +134,7 @@ func (t *baseManagerImpl[T]) basicQueryMutator(ctx context.Context, stmt string,
 	var bindings []any
 	for _, opt := range opts {
 		query = opt.applyToQuery(query)
-		bindings = append(bindings, opt.bindings())
+		bindings = append(bindings, opt.bindings()...)
 	}
 	query.Bind(bindings...)
 	return query
@@ -146,7 +146,7 @@ func (t *baseManagerImpl[T]) sessionQueryMutator(ctx context.Context, sess gocql
 	var bindings []any
 	for _, opt := range opts {
 		query = opt.applyToQuery(query)
-		bindings = append(bindings, opt.bindings())
+		bindings = append(bindings, opt.bindings()...)
 	}
 	query.Bind(bindings...)
 	return query
