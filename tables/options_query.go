@@ -98,3 +98,16 @@ func WithKey(name string, value any) QueryOption {
 		},
 	}
 }
+
+// WithCondition creates a query option that translates to a `name op value` statement in a `where` clause.
+// Note, don't use inbetween a WithPredicates and WithBindings option - that will mess up key -> value alignment
+func WithCondition(cond qb.Cmp, value any) QueryOption {
+	return &queryOption{
+		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
+			return builder.Where(cond)
+		},
+		queryMutator: func(query *gocqlx.Queryx) *gocqlx.Queryx {
+			return query.Bind(value)
+		},
+	}
+}
