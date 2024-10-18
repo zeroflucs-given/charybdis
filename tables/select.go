@@ -15,7 +15,7 @@ func (t *baseManagerImpl[T]) GetByPartitionKey(ctx context.Context, partitionKey
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByPartitionKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		var target T
 		stmt, params := t.basicQueryBuilder().Where(t.partitionKeyPredicates...).ToCql()
-		errQuery := t.basicQueryMutator(ctx, stmt, params).Bind(partitionKeys...).Get(&target)
+		errQuery := t.basicQueryMutator(ctx, t.Session, stmt, params).Bind(partitionKeys...).Get(&target)
 		return &target, errQuery
 	})
 }
@@ -25,7 +25,7 @@ func (t *baseManagerImpl[T]) GetByPrimaryKey(ctx context.Context, primaryKeys ..
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByPrimaryKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		var target T
 		stmt, params := t.basicQueryBuilder().Where(t.allKeyPredicates...).ToCql()
-		errQuery := t.basicQueryMutator(ctx, stmt, params).Bind(primaryKeys...).Get(&target)
+		errQuery := t.basicQueryMutator(ctx, t.Session, stmt, params).Bind(primaryKeys...).Get(&target)
 		return &target, errQuery
 	})
 }
@@ -35,7 +35,7 @@ func (t *baseManagerImpl[T]) GetUsingOptions(ctx context.Context, opts ...QueryO
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetUsingOptions", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		var target T
 		stmt, params := t.basicQueryBuilder(opts...).ToCql()
-		errQuery := t.basicQueryMutator(ctx, stmt, params, opts...).Get(&target)
+		errQuery := t.basicQueryMutator(ctx, t.Session, stmt, params, opts...).Get(&target)
 		return &target, errQuery
 	})
 }
@@ -45,7 +45,7 @@ func (t *baseManagerImpl[T]) GetByExample(ctx context.Context, example *T) (*T, 
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetByExample", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		var target T
 		stmt, params := t.basicQueryBuilder().Where(t.allKeyPredicates...).ToCql()
-		errQuery := t.basicQueryMutator(ctx, stmt, params).BindStruct(example).Get(&target)
+		errQuery := t.basicQueryMutator(ctx, t.Session, stmt, params).BindStruct(example).Get(&target)
 		return &target, errQuery
 	})
 }
@@ -56,7 +56,7 @@ func (t *baseManagerImpl[T]) GetByIndexedColumn(ctx context.Context, columnName 
 		var target T
 		stmt, params := t.basicQueryBuilder(opts...).Where(qb.Eq(columnName)).ToCql()
 
-		errQuery := t.basicQueryMutator(ctx, stmt, params, opts...).Bind(value).Get(&target)
+		errQuery := t.basicQueryMutator(ctx, t.Session, stmt, params, opts...).Bind(value).Get(&target)
 		if errors.Is(errQuery, gocql.ErrNotFound) {
 			return nil, nil
 		}
@@ -81,7 +81,7 @@ func (t *baseManagerImpl[T]) SelectByIndexedColumn(ctx context.Context, fn PageH
 	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByIndexedColumn", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			stmt, params := t.basicQueryBuilder(opts...).Where(qb.Eq(columnName)).ToCql()
-			query := t.sessionQueryMutator(ctx, sess, stmt, params).Bind(columnValue)
+			query := t.basicQueryMutator(ctx, sess, stmt, params, opts...).Bind(columnValue)
 			return query
 		}, fn, opts...)
 	})
@@ -92,7 +92,7 @@ func (t *baseManagerImpl[T]) SelectByPartitionKey(ctx context.Context, fn PageHa
 	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByPartitionKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.pageQueryInternal(ctx, func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx {
 			stmt, params := t.basicQueryBuilder(opts...).Where(t.partitionKeyPredicates...).ToCql()
-			return t.sessionQueryMutator(ctx, sess, stmt, params).Bind(partitionKeys...)
+			return t.basicQueryMutator(ctx, sess, stmt, params, opts...).Bind(partitionKeys...)
 		}, fn, opts...)
 	})
 }
@@ -104,7 +104,7 @@ func (t *baseManagerImpl[T]) SelectByPrimaryKey(ctx context.Context, fn PageHand
 			// trim predicates list to match length of primary keys entered in case not all clustering keys have been specified
 			predicates := t.allKeyPredicates[:len(primaryKeys)]
 			stmt, params := t.basicQueryBuilder(opts...).Where(predicates...).ToCql()
-			return t.sessionQueryMutator(ctx, sess, stmt, params).Bind(primaryKeys...)
+			return t.basicQueryMutator(ctx, sess, stmt, params, opts...).Bind(primaryKeys...)
 		}, fn, opts...)
 	})
 }
@@ -127,21 +127,8 @@ func (t *baseManagerImpl[T]) basicQueryBuilder(opts ...QueryOption) *qb.SelectBu
 	return builder
 }
 
-// Construct a (partial) query using the given options
-func (t *baseManagerImpl[T]) basicQueryMutator(ctx context.Context, stmt string, names []string, opts ...QueryOption) *gocqlx.Queryx {
-	query := t.Session.ContextQuery(ctx, stmt, names).Consistency(t.readConsistency)
-
-	var bindings []any
-	for _, opt := range opts {
-		query = opt.applyToQuery(query)
-		bindings = append(bindings, opt.bindings()...)
-	}
-	query.Bind(bindings...)
-	return query
-}
-
 // Construct a (partial) query using the given options & session
-func (t *baseManagerImpl[T]) sessionQueryMutator(ctx context.Context, sess gocqlx.Session, stmt string, names []string, opts ...QueryOption) *gocqlx.Queryx {
+func (t *baseManagerImpl[T]) basicQueryMutator(ctx context.Context, sess gocqlx.Session, stmt string, names []string, opts ...QueryOption) *gocqlx.Queryx {
 	query := sess.ContextQuery(ctx, stmt, names)
 	var bindings []any
 	for _, opt := range opts {
