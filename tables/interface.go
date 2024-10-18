@@ -110,6 +110,12 @@ type ViewManager[T any] interface {
 	// GetByPrimaryKey gets by the full primary key (partitioning and clustering keys)
 	GetByPrimaryKey(ctx context.Context, primaryKeys ...any) (*T, error)
 
+	// GetUsingOptions provides a method to fetch the first row found using QueryOptions to determine keys search & columns returned, etc
+	GetUsingOptions(ctx context.Context, opts ...QueryOption) (*T, error)
+
+	// GetByExample gets a single record, binding by example object with the key fields all set
+	// GetByExample(ctx context.Context, example *T) (*T, error)
+
 	// GetByIndexedColumn gets the first record matching an index
 	GetByIndexedColumn(ctx context.Context, columnName string, value any, opts ...QueryOption) (*T, error)
 
