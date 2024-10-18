@@ -143,9 +143,6 @@ func (t *tableManagerImpl[T]) DeleteUsingOptions(ctx context.Context, opts ...De
 
 		builder := qb.Delete(t.qualifiedTableName).Columns(cols...).Where(predicates...)
 
-		s, n := builder.ToCql()
-		fmt.Printf("query: %s - %v\n", s, n)
-
 		query := t.Session.Query(builder.ToCql()).
 			WithContext(retryCtx).
 			Consistency(t.writeConsistency)
