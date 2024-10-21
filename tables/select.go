@@ -73,7 +73,7 @@ func (t *baseManagerImpl[T]) GetByIndexedColumn(ctx context.Context, columnName 
 // SelectByCustomQuery gets all records by a custom query in a paged fashion
 func (t *baseManagerImpl[T]) SelectByCustomQuery(ctx context.Context, queryBuilder QueryBuilderFn, pagingFn PageHandlerFn[T], opts ...QueryOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/SelectByCustomQuery", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
-		return t.pageQueryInternal(ctx, queryBuilder, pagingFn, opts...) // Fixme: bindings wont be right here
+		return t.pageQueryInternal(ctx, queryBuilder, pagingFn, opts...) // Fixme: warning bindings wont be right here if an option to set bindings is used
 	})
 }
 
