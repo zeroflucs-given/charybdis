@@ -22,11 +22,30 @@ func WithAutomaticTableSpecification[T any](name string) tables.ManagerOption {
 		panic(err)
 	}
 
+	types, err := CreateTypeSpecificationsFromTableExample(&instance)
+	if err != nil {
+		panic(err)
+	}
+
+	spec.CustomTypes = types
+
 	return tables.WithTableSpecification(spec)
 }
 
-// WithSimpleView attaches a view definition to the table manager, based on named
-// columns. All columns of the base table are part of the view
+// WithAutomaticTypeSpecification creates a table-manager option that sets the table specification by reflecting over the structure.
+func WithAutomaticTypeSpecification[T any](name string) tables.ManagerOption {
+	var instance T
+	spec, err := CreateTypeSpecificationFromExample(name, &instance)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return tables.WithTypeSpecification(spec)
+}
+
+// WithSimpleView attaches a view definition to the table manager, based on named columns.
+// All columns of the base table are part of the view
 func WithSimpleView(name string, partitionKeys []string, clusteringKeys []string) tables.ManagerOption {
 	return tables.WithSpecMutator(func(ctx context.Context, table *metadata.TableSpecification, originalView *metadata.ViewSpecification) (*metadata.TableSpecification, *metadata.ViewSpecification, error) {
 		failed := false

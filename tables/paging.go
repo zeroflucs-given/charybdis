@@ -2,6 +2,7 @@ package tables
 
 import (
 	"context"
+
 	"github.com/scylladb/gocqlx/v2"
 )
 

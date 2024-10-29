@@ -22,7 +22,7 @@ func TestUpsertRecords(t *testing.T) {
 	// Arrange
 	obj := &Order{
 		OrderID:         "upsert-test-1",
-		ShippingAddress: "Some address",
+		ShippingAddress: testAddress(1, "Initial Street", "Somerville"),
 	}
 	errInsert := manager.Insert(ctx, obj)
 	require.NoError(t, errInsert, "Should not error inserting")
@@ -30,7 +30,7 @@ func TestUpsertRecords(t *testing.T) {
 	// Act
 	updated := &Order{
 		OrderID:         "upsert-test-1",
-		ShippingAddress: "new address",
+		ShippingAddress: testAddress(1, "Upsert Street", "Somerville"),
 	}
 	errUpdate := manager.Upsert(ctx, updated)
 
@@ -39,7 +39,7 @@ func TestUpsertRecords(t *testing.T) {
 	fetched, errGet := manager.GetByPartitionKey(ctx, "upsert-test-1")
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get object back")
-	require.Equal(t, "new address", fetched.ShippingAddress, "Change should have persisted")
+	require.Equal(t, testAddress(1, "Upsert Street", "Somerville"), fetched.ShippingAddress, "Change should have persisted")
 }
 
 // TestUpsertRecordNotExist checks upserts dont fail when a record does not exist
@@ -58,7 +58,7 @@ func TestUpsertRecordNotExist(t *testing.T) {
 	// Act
 	updated := &Order{
 		OrderID:         "upsert-test-2",
-		ShippingAddress: "new address",
+		ShippingAddress: testAddress(2, "Upsert Street", "Somerville"),
 	}
 	errUpdate := manager.Upsert(ctx, updated)
 
@@ -67,7 +67,7 @@ func TestUpsertRecordNotExist(t *testing.T) {
 	fetched, errGet := manager.GetByPartitionKey(ctx, "upsert-test-2")
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get object back")
-	require.Equal(t, "new address", fetched.ShippingAddress, "Change should have persisted")
+	require.Equal(t, testAddress(2, "Upsert Street", "Somerville"), fetched.ShippingAddress, "Change should have persisted")
 }
 
 // TestWithSimpleIfNotFound checks that no update happens if the existing record isn't found
@@ -83,7 +83,7 @@ func TestWithSimpleIfNotFound(t *testing.T) {
 	// Upsert initial
 	orig := &Order{
 		OrderID:         "upsert-test-3",
-		ShippingAddress: "alternate address",
+		ShippingAddress: testAddress(3, "Initial Street", "Somerville"),
 	}
 	errInsert := manager.Insert(ctx, orig)
 	require.NoError(t, errInsert, "No error inserting")
@@ -91,9 +91,9 @@ func TestWithSimpleIfNotFound(t *testing.T) {
 	// Test
 	updated := &Order{
 		OrderID:         "upsert-test-3",
-		ShippingAddress: "new address",
+		ShippingAddress: testAddress(3, "Upsert Street", "Somerville"),
 	}
-	option := tables.WithSimpleUpsertIf("shipping_address", "address")
+	option := tables.WithSimpleUpsertIf("shipping_address", testAddress(3, "Different Street", "Somerville"))
 	errUpdate := manager.Upsert(ctx, updated, option)
 
 	// Assert
@@ -101,5 +101,5 @@ func TestWithSimpleIfNotFound(t *testing.T) {
 	fetched, errGet := manager.GetByPartitionKey(ctx, "upsert-test-3")
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get object back")
-	require.Equal(t, "alternate address", fetched.ShippingAddress, "Should be no change")
+	require.Equal(t, testAddress(3, "Initial Street", "Somerville"), fetched.ShippingAddress, "Should be no change")
 }

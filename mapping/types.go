@@ -3,11 +3,12 @@ package mapping
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
 
-// GetScyllaTypeForType determines the type to use in Scylla
-func GetScyllaTypeForType(t reflect.Type) (string, error) {
-	if t.Kind() == reflect.Ptr {
+// GetScyllaTypeForGoType determines the type to use in Scylla
+func GetScyllaTypeForGoType(t reflect.Type) (string, error) {
+	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 	switch t {
@@ -29,8 +30,46 @@ func GetScyllaTypeForType(t reflect.Type) (string, error) {
 		return "double", nil
 	case knownTypeTime:
 		return "timestamp", nil
+	case knownTypeDuration:
+		return "bigint", nil
 	case knownTypeByteSlice:
 		return "blob", nil
 	}
-	return "", fmt.Errorf("unknown type: %v", t.String())
+
+	switch t.Kind() {
+	case reflect.Struct:
+		return strings.ToLower(t.Name()), nil
+	default:
+		// unhandled
+	}
+
+	return "", fmt.Errorf("unknown type: %v (%s)", t.String(), t.Kind())
+}
+
+var scyllaTypes = []string{
+	"ascii",
+	"bigint",
+	"blob",
+	"boolean",
+	"counter",
+	"date",
+	"decimal",
+	"double",
+	"float",
+	"frozen",
+	"inet",
+	"int",
+	"list",
+	"map",
+	"set",
+	"smallint",
+	"text",
+	"time",
+	"timestamp",
+	"timeuuid",
+	"tinyint",
+	"tuple",
+	"uuid",
+	"varchar",
+	"varint",
 }

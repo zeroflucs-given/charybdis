@@ -28,7 +28,7 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 
 	// Execute hooks
 	for _, opt := range options {
-		err := opt.onStart(ctx, params.Keyspace, params.TableSpec, params.ViewSpec)
+		err := opt.onStart(ctx, params.Keyspace, WithTableSpec(params.TableSpec), WithViewSpec(params.ViewSpec))
 		if err != nil {
 			return nil, fmt.Errorf("error running view manager start hooks: %w", err)
 		}

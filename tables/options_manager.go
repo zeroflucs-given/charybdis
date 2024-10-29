@@ -99,6 +99,7 @@ func WithTableSpecification(spec *metadata.TableSpecification) ManagerOption {
 	return &tableManagerOption{
 		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
 			params.TableSpec = spec
+			params.TypeSpecs = append(params.TypeSpecs, spec.CustomTypes...)
 			return nil
 		},
 	}
@@ -114,11 +115,31 @@ func WithViewSpecification(spec *metadata.ViewSpecification) ManagerOption {
 	}
 }
 
-// WithStartupFn attaches a function at startup time for the table-manager. This
-// can for example be used to perform DDL/table specificiation maintainance.
+// WithTypeSpecification sets one or more type specifications to use
+func WithTypeSpecification(spec ...*metadata.TypeSpecification) ManagerOption {
+	return &tableManagerOption{
+		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
+			params.TypeSpecs = append(params.TypeSpecs, spec...)
+			return nil
+		},
+	}
+}
+
+// WithStartupFn attaches a function at startup time for the table-manager.
+// This can for example be used to perform DDL/table specification maintenance.
+//
+// Deprecated: Prefer WithStartupFnEx as it supports custom types and any future features.
 func WithStartupFn(fn TableManagerStartupFn) ManagerOption {
 	return &tableManagerOption{
 		startHook: fn,
+	}
+}
+
+// WithStartupFnEx attaches a function at startup time for the table-manager.
+// This provides the same functionality as WithStartupFn, while allowing later extension more easily
+func WithStartupFnEx(fn TableManagerStartupFnEx) ManagerOption {
+	return &tableManagerOption{
+		startHookEx: fn,
 	}
 }
 
@@ -144,6 +165,7 @@ type TableManagerStartupFn func(ctx context.Context, keyspace string, table *met
 type tableManagerOption struct {
 	parametersHook tableParameterMutator
 	startHook      TableManagerStartupFn
+	startHookEx    TableManagerStartupFnEx
 	insertOpts     []InsertOption
 	deleteOpts     []DeleteOption
 	updateOpts     []UpdateOption
@@ -159,34 +181,44 @@ func (t *tableManagerOption) mutateParameters(ctx context.Context, params *table
 	return t.parametersHook(ctx, params)
 }
 
-func (t *tableManagerOption) onStart(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error {
-	if t.startHook == nil {
-		return nil
+func (t *tableManagerOption) onStart(ctx context.Context, keyspace string, options ...StartupOption) error {
+	var err error
+
+	if t.startHook != nil {
+		opts := CollectStartupOptions(options)
+		err = t.startHook(ctx, keyspace, opts.table, opts.view, opts.ddl...)
+	}
+	if err != nil {
+		return err
 	}
 
-	return t.startHook(ctx, keyspace, table, view, extraOps...)
+	if t.startHookEx != nil {
+		err = t.startHookEx(ctx, keyspace, options...)
+	}
+
+	return err
 }
 
-func (t tableManagerOption) insertOptions() []InsertOption {
+func (t *tableManagerOption) insertOptions() []InsertOption {
 	return t.insertOpts
 }
 
-func (t tableManagerOption) deleteOptions() []DeleteOption {
+func (t *tableManagerOption) deleteOptions() []DeleteOption {
 	return t.deleteOpts
 }
 
-func (t tableManagerOption) updateOptions() []UpdateOption {
+func (t *tableManagerOption) updateOptions() []UpdateOption {
 	return t.updateOpts
 }
 
-func (t tableManagerOption) upsertOptions() []UpsertOption {
+func (t *tableManagerOption) upsertOptions() []UpsertOption {
 	return t.upsertOpts
 }
 
-func (t tableManagerOption) beforeChange(ctx context.Context, rec any) error {
+func (t *tableManagerOption) beforeChange(ctx context.Context, rec any) error {
 	return nil
 }
 
-func (t tableManagerOption) afterChange(ctx context.Context, rec any) error {
+func (t *tableManagerOption) afterChange(ctx context.Context, rec any) error {
 	return nil
 }

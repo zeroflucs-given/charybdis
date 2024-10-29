@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/scylladb/gocqlx/v2/table"
@@ -16,6 +17,7 @@ type TableSpecification struct {
 	Partitioning []*PartitioningColumn           `json:"partitioning"` // Partitioning keys
 	Clustering   []*ClusteringColumn             `json:"clustering"`   // Clustering keys
 	Indexes      map[string]*ColumnSpecification `json:"indexes"`      // Indexes to create
+	CustomTypes  []*TypeSpecification            `json:"custom_types"` // If any columns use a custom type, record it here so we can create it if needed
 }
 
 // Canonicalize the form of the structure
@@ -69,6 +71,8 @@ func (t *TableSpecification) Clone(includeIndexes bool) *TableSpecification {
 			spec.Indexes[k] = colMap[c.Name]
 		}
 	}
+
+	spec.CustomTypes = slices.Clone(t.CustomTypes)
 
 	return spec
 }

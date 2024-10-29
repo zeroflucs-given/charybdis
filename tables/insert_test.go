@@ -21,10 +21,12 @@ func TestInsertRecord(t *testing.T) {
 		tables.WithTableSpecification(OrdersTableSpec))
 	require.NoError(t, err, "Should not error starting up")
 
+	addr := testAddress(1, "Some address", "Somewhere")
+
 	// Arrange
 	obj := &Order{
 		OrderID:         "insert-test-1",
-		ShippingAddress: "Some address",
+		ShippingAddress: addr,
 	}
 
 	// Act
@@ -35,7 +37,7 @@ func TestInsertRecord(t *testing.T) {
 	fetched, errGet := manager.GetByPartitionKey(ctx, "insert-test-1")
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get object back")
-	require.Equal(t, "Some address", fetched.ShippingAddress, "Should have non-key fields set")
+	require.Equal(t, addr, fetched.ShippingAddress, "Should have non-key fields set")
 }
 
 // TestInsertRecordBuild performs bulk insert testing
@@ -53,7 +55,7 @@ func TestInsertRecordBulk(t *testing.T) {
 	for i := 0; i < len(orders); i++ {
 		orders[i] = &Order{
 			OrderID:         fmt.Sprintf("bulk-order-%d", i),
-			ShippingAddress: fmt.Sprintf("Shipping address for %d", i),
+			ShippingAddress: testAddress(i, "Bulk Street", "Somerville"),
 		}
 	}
 
@@ -65,7 +67,7 @@ func TestInsertRecordBulk(t *testing.T) {
 	fetched, errFetch := manager.GetByPartitionKey(ctx, "bulk-order-1")
 	require.NoError(t, errFetch, "Should not fail re-fetching")
 	require.NotNil(t, fetched, "Should have an object")
-	require.Equal(t, "Shipping address for 1", fetched.ShippingAddress, "Should have correct state")
+	require.Equal(t, testAddress(1, "Bulk Street", "Somerville"), fetched.ShippingAddress, "Should have correct state")
 }
 
 // TestInsertDuplicates checks that a duplicated insert fails with the expected error
@@ -81,7 +83,7 @@ func TestInsertDuplicates(t *testing.T) {
 	// Arrange
 	obj := &Order{
 		OrderID:         "insert-test-dupe",
-		ShippingAddress: "Some address",
+		ShippingAddress: testAddress(3, "Some Street", "Somerville"),
 	}
 	errInsert := manager.Insert(ctx, obj)
 	require.NoError(t, errInsert, "Should not error inserting")
@@ -89,16 +91,16 @@ func TestInsertDuplicates(t *testing.T) {
 	// Act
 	dupe := &Order{
 		OrderID:         "insert-test-dupe",
-		ShippingAddress: "another address",
+		ShippingAddress: testAddress(3, "Another Street", "Somerville"),
 	}
 	errInsertDupe := manager.Insert(ctx, dupe)
 	require.ErrorIs(t, errInsertDupe, tables.ErrPreconditionFailed, "Should get a precondition failure")
 
 	// Assert
-	fetched, errGet := manager.GetByPartitionKey(ctx, "insert-test-1")
+	fetched, errGet := manager.GetByPartitionKey(ctx, "insert-test-dupe")
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get object back")
-	require.Equal(t, "Some address", fetched.ShippingAddress, "Should have original state")
+	require.Equal(t, testAddress(3, "Some Street", "Somerville"), fetched.ShippingAddress, "Should have original state")
 }
 
 // TestInsertRecordWithTTL checks we can insert a record and that it's not there after a delay
@@ -114,7 +116,7 @@ func TestInsertRecordWithTTL(t *testing.T) {
 	// Arrange
 	obj := &Order{
 		OrderID:         "insert-test-ttl",
-		ShippingAddress: "Some address",
+		ShippingAddress: testAddress(4, "Some Street", "Somerville"),
 	}
 
 	// Act

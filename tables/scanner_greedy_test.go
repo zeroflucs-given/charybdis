@@ -25,7 +25,7 @@ func TestScanGreedy(t *testing.T) {
 	for i := 0; i < len(orders); i++ {
 		orders[i] = &Order{
 			OrderID:         fmt.Sprintf("greedy-scan-%d", i),
-			ShippingAddress: fmt.Sprintf("Shipping address for %d", i),
+			ShippingAddress: testAddress(i, "Greedy Street", "Somerville"),
 		}
 	}
 	errBulk := manager.InsertBulk(ctx, orders, 4)

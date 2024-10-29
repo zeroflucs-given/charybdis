@@ -1,6 +1,6 @@
 module github.com/zeroflucs-given/charybdis
 
-go 1.22
+go 1.23
 
 replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.4
 

@@ -23,7 +23,7 @@ func TestUpdateRecord(t *testing.T) {
 	// Arrange
 	obj := &Order{
 		OrderID:         "update-test-1",
-		ShippingAddress: "Some address",
+		ShippingAddress: testAddress(1, "Insert Street", "Somerville"),
 	}
 	errInsert := manager.Insert(ctx, obj)
 	require.NoError(t, errInsert, "Should not error inserting")
@@ -31,7 +31,7 @@ func TestUpdateRecord(t *testing.T) {
 	// Act
 	updated := &Order{
 		OrderID:         "update-test-1",
-		ShippingAddress: "new address",
+		ShippingAddress: testAddress(2, "Update Street", "Somerville"),
 	}
 	errUpdate := manager.Update(ctx, updated)
 
@@ -40,7 +40,7 @@ func TestUpdateRecord(t *testing.T) {
 	fetched, errGet := manager.GetByPartitionKey(ctx, "update-test-1")
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get object back")
-	require.Equal(t, "new address", fetched.ShippingAddress, "Change should have persisted")
+	require.Equal(t, testAddress(2, "Update Street", "Somerville"), fetched.ShippingAddress, "Change should have persisted")
 }
 
 // TestUpdateRecordWithTTL checks we can update an existing record with a TTL
@@ -57,7 +57,7 @@ func TestUpdateRecordWithTTL(t *testing.T) {
 	// Arrange
 	obj := &Order{
 		OrderID:         "update-test-2",
-		ShippingAddress: "Some address",
+		ShippingAddress: testAddress(1, "Insert Street", "Somerville"),
 	}
 	errInsert := manager.Insert(ctx, obj)
 	require.NoError(t, errInsert, "Should not error inserting")
@@ -65,7 +65,7 @@ func TestUpdateRecordWithTTL(t *testing.T) {
 	// Act
 	updated := &Order{
 		OrderID:         "update-test-2",
-		ShippingAddress: "new address",
+		ShippingAddress: testAddress(2, "Update Street", "Somerville"),
 	}
 	errUpdate := manager.Update(ctx, updated, tables.WithTTL(time.Second))
 	time.Sleep(time.Second * 2)
@@ -75,7 +75,7 @@ func TestUpdateRecordWithTTL(t *testing.T) {
 	fetched, errGet := manager.GetByPartitionKey(ctx, "update-test-2")
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get an object back")
-	require.Equal(t, "", fetched.ShippingAddress, "Shipping address should now disappear")
+	require.Equal(t, Address{}, fetched.ShippingAddress, "Shipping address should now disappear")
 }
 
 // TestUpdateRecordNotExist checks updates fail when a record does not exist
@@ -94,7 +94,7 @@ func TestUpdateRecordNotExist(t *testing.T) {
 	// Act
 	updated := &Order{
 		OrderID:         "update-test-3",
-		ShippingAddress: "new address",
+		ShippingAddress: testAddress(3, "Update Street", "Somerville"),
 	}
 	errUpdate := manager.Update(ctx, updated)
 
@@ -115,7 +115,7 @@ func TestWithSimpleIf(t *testing.T) {
 	// Upsert initial
 	orig := &Order{
 		OrderID:         "update-test-4",
-		ShippingAddress: "address",
+		ShippingAddress: testAddress(4, "Original Street", "Somerville"),
 	}
 	errInsert := manager.Insert(ctx, orig)
 	require.NoError(t, errInsert, "No error inserting")
@@ -123,9 +123,9 @@ func TestWithSimpleIf(t *testing.T) {
 	// Test
 	updated := &Order{
 		OrderID:         "update-test-4",
-		ShippingAddress: "new address",
+		ShippingAddress: testAddress(4, "Update Street", "Somerville"),
 	}
-	option := tables.WithSimpleIf("shipping_address", "address")
+	option := tables.WithSimpleIf("shipping_address", testAddress(4, "Original Street", "Somerville"))
 	errUpdate := manager.Update(ctx, updated, option)
 
 	// Assert
@@ -133,7 +133,7 @@ func TestWithSimpleIf(t *testing.T) {
 	fetched, errGet := manager.GetByPartitionKey(ctx, "update-test-4")
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get object back")
-	require.Equal(t, "new address", fetched.ShippingAddress, "Change should have persisted")
+	require.Equal(t, testAddress(4, "Update Street", "Somerville"), fetched.ShippingAddress, "Change should have persisted")
 }
 
 // TestWithSimpleIfWrongValue checks upserts succeed if predicate satisfied
@@ -149,7 +149,7 @@ func TestWithSimpleIfWrongValue(t *testing.T) {
 	// Upsert initial
 	orig := &Order{
 		OrderID:         "update-test-5",
-		ShippingAddress: "alternate address",
+		ShippingAddress: testAddress(4, "Start Street", "Somerville"),
 	}
 	errInsert := manager.Insert(ctx, orig)
 	require.NoError(t, errInsert, "No error inserting")
@@ -157,7 +157,7 @@ func TestWithSimpleIfWrongValue(t *testing.T) {
 	// Test
 	updated := &Order{
 		OrderID:         "update-test-5",
-		ShippingAddress: "new address",
+		ShippingAddress: testAddress(5, "Update Street", "Somerville"),
 	}
 	option := tables.WithSimpleIf("shipping_address", "address")
 	errUpdate := manager.Update(ctx, updated, option)
@@ -179,7 +179,7 @@ func TestWithSimpleIfNotExists(t *testing.T) {
 	// Test
 	updated := &Order{
 		OrderID:         "update-test-6",
-		ShippingAddress: "new address",
+		ShippingAddress: testAddress(6, "Update Street", "Somerville"),
 	}
 	option := tables.WithSimpleIf("shipping_address", "address")
 	errUpdate := manager.Update(ctx, updated, option)

@@ -180,7 +180,7 @@ type UpsertOption interface {
 // ManagerOption defines an option for the table manager
 type ManagerOption interface {
 	mutateParameters(ctx context.Context, params *tableManagerParameters) error
-	onStart(ctx context.Context, keyspace string, table *metadata.TableSpecification, view *metadata.ViewSpecification, extraOps ...metadata.DDLOperation) error
+	onStart(ctx context.Context, keyspace string, options ...StartupOption) error
 	insertOptions() []InsertOption
 	updateOptions() []UpdateOption
 	upsertOptions() []UpsertOption

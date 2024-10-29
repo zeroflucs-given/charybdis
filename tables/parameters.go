@@ -20,6 +20,7 @@ type tableManagerParameters struct {
 	DoTracing        bool
 	TableSpec        *metadata.TableSpecification
 	ViewSpec         *metadata.ViewSpecification
+	TypeSpecs        []*metadata.TypeSpecification
 	ReadConsistency  gocql.Consistency
 	WriteConsistency gocql.Consistency
 	TTL              time.Duration

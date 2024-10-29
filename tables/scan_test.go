@@ -23,7 +23,7 @@ func TestScan(t *testing.T) {
 	// Arrange
 	obj := &Order{
 		OrderID:         "scan-test-1",
-		ShippingAddress: "Scan address",
+		ShippingAddress: testAddress(1, "Scan Street", "Somerville"),
 	}
 	errInsert := manager.Insert(ctx, obj)
 	require.NoError(t, errInsert, "Should not error inserting")
@@ -58,7 +58,7 @@ func TestScanPaged(t *testing.T) {
 	for i := 0; i < len(orders); i++ {
 		orders[i] = &Order{
 			OrderID:         fmt.Sprintf("bulk-scan-%d", i),
-			ShippingAddress: fmt.Sprintf("Shipping address for %d", i),
+			ShippingAddress: testAddress(i, "Bulk Street", "Somerville"),
 		}
 	}
 	errBulk := manager.InsertBulk(ctx, orders, 4)
@@ -94,7 +94,7 @@ func TestScanSorted(t *testing.T) {
 	for i := 0; i < len(orders); i++ {
 		orders[i] = &Order{
 			OrderID:         fmt.Sprintf("bulk-scan-%02d", i),
-			ShippingAddress: fmt.Sprintf("Shipping address for %d", i),
+			ShippingAddress: testAddress(i, "Bulk Street", "Somerville"),
 		}
 	}
 	errBulk := manager.InsertBulk(ctx, orders, 4)

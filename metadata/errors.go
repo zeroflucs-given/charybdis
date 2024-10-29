@@ -6,13 +6,16 @@ import "errors"
 var ErrNoObject = errors.New("object missing or undefined")
 
 // ErrInvalidTableOrViewName indicates a table or view name is invalid
-var ErrInvalidTableOrViewName = errors.New("invalid table or view name")
+var ErrInvalidTableOrViewName = errors.New("invalid table, type or view name")
 
 // ErrInvalidColumnName indicates a column name is invalid
 var ErrInvalidColumnName = errors.New("invalid column name")
 
 // ErrNoPartitioningKey indicates we have no partitioning key
-var ErrNoPartitioningKey = errors.New("no partitioning key key")
+var ErrNoPartitioningKey = errors.New("no partitioning key")
+
+// ErrNoFields indicates a type has no fields defined
+var ErrNoFields = errors.New("no fields")
 
 // ErrMismatchedColumns indicates one of the columns referenced in an object is
 // not present in the column list.

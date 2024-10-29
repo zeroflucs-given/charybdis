@@ -29,9 +29,8 @@ func (u *updateOption) isPrecondition() bool {
 
 // WithSimpleIf allows for a LWT that does a simple value-based comparison on a single column
 func WithSimpleIf(targetColumn string, val any) UpdateOption {
-	// Just needs to be a unique column name that won't be part of the
-	// table specification. If someone uses this, queries will naturally
-	// fail.
+	// Just needs to be a unique column name that won't be part of the table specification.
+	// If someone uses this, queries will naturally fail.
 	const simpleIfName = "charybdis_if"
 
 	return &updateOption{

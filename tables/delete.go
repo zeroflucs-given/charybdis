@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/scylladb/gocqlx/v2/qb"
 	"time"
 
 	"github.com/gocql/gocql"
+	"github.com/scylladb/gocqlx/v2/qb"
 	"go.uber.org/zap"
 )
 

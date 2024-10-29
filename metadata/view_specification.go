@@ -98,7 +98,6 @@ func (v *ViewSpecification) ToCQLX() *table.Table {
 	md := table.Metadata{
 		Name: v.Name,
 		Columns: generics.Map(allColumns, func(i int, v *ColumnSpecification) string {
-
 			return v.Name
 		}),
 		PartKey: generics.Map(v.Partitioning, func(i int, v *PartitioningColumn) string {
