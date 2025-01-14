@@ -46,6 +46,10 @@ type TableManager[T any] interface {
 	// GetTableSpec gets the table specification for this table-manager
 	GetTableSpec() *metadata.TableSpecification
 
+	// GetSession gets the underlying session. Caveat emptor.
+	// This will be an implementation-specific type. If using gocqlx, this is a gocqlx.Session.
+	GetSession() any
+
 	// Insert a single record
 	Insert(ctx context.Context, instance *T, options ...InsertOption) error
 

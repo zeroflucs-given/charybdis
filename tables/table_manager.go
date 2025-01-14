@@ -122,3 +122,7 @@ type tableManagerImpl[T any] struct {
 func (t *tableManagerImpl[T]) GetTableSpec() *metadata.TableSpecification {
 	return t.tableSpec.Clone(true)
 }
+
+func (t *tableManagerImpl[T]) GetSession() any {
+	return t.Session
+}
