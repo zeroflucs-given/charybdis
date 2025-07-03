@@ -47,7 +47,7 @@ var testTableDeclarations = []string{
 	"CREATE TABLE charybdis_tests.orders (order_id varchar, shipping_address address, PRIMARY KEY(order_id))",
 	"CREATE TABLE charybdis_tests.order_items (order_id varchar, item_id varchar, quantity int, PRIMARY KEY((order_id), item_id))",
 	"CREATE INDEX order_item_lookup ON charybdis_tests.order_items (item_id)",
-	"CREATE MATERIALIZED VIEW charybdis_tests.item_orders AS SELECT * FROM charybdis_tests.order_items WHERE order_id IS NOT NULL AND item_id IS NOT NULL PRIMARY KEY((item_id), order_id) WITH CLUSTERING ORDER BY (order_id ASC)",
+	"CREATE MATERIALIZED VIEW charybdis_tests.item_orders AS SELECT * FROM charybdis_tests.order_items WHERE order_id IS NOT NULL AND item_id IS NOT NULL AND (quantity > 0) PRIMARY KEY((item_id), order_id, quantity) WITH CLUSTERING ORDER BY (order_id ASC)",
 }
 
 var testClusterConfig utils.ClusterConfigGeneratorFn
@@ -141,7 +141,13 @@ var (
 				Order:      1,
 				Descending: false,
 			},
+			{
+				Column:     orderItemColumns[2],
+				Order:      2,
+				Descending: false,
+			},
 		},
+		Where: "quantity > 0",
 	}
 )
 

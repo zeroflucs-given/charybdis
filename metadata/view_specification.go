@@ -14,6 +14,7 @@ type ViewSpecification struct {
 	Table        *TableSpecification   `json:"table"`        // Table we are a view of
 	Partitioning []*PartitioningColumn `json:"partitioning"` // Partitioning keys
 	Clustering   []*ClusteringColumn   `json:"clustering"`   // Clustering keys
+	Where        string                `json:"where"`        // Where clause extension
 }
 
 // Validate the table specification

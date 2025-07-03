@@ -34,6 +34,13 @@ func CreateDDLFromViewSpecification(keyspace string, spec *metadata.ViewSpecific
 			return fmt.Sprintf("%v IS NOT NULL", c.Name)
 		})
 
+	whereClause := strings.Join(keyPredicates, " AND ")
+
+	// Add custom where filter
+	if spec.Where != "" {
+		whereClause = fmt.Sprintf("%v AND (%v)", whereClause, spec.Where)
+	}
+
 	var commands []metadata.DDLOperation
 
 	if existing == nil {
@@ -43,7 +50,7 @@ func CreateDDLFromViewSpecification(keyspace string, spec *metadata.ViewSpecific
 			spec.Name,
 			keyspace,
 			spec.Table.Name,
-			strings.Join(keyPredicates, " AND "),
+			whereClause,
 			getKeySpec(spec.Partitioning, spec.Clustering),
 			getClusteringSuffix(spec.Clustering),
 		)
