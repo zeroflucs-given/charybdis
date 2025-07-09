@@ -3,8 +3,6 @@ package tables
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gocql/gocql"
