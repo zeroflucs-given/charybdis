@@ -84,13 +84,7 @@ func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, o
 	}
 
 	if !applied {
-		return fmt.Errorf(
-			"precondition failed for LWT operation\nstatement:%v\nparameters:%v\narguments:%v\naddtional arguments:%v",
-			stmt,
-			strings.Join(params, ", "),
-			instance,
-			additionalVals,
-		)
+		return ErrPreconditionFailed
 	}
 
 	// Post-change hooks
