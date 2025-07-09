@@ -3,6 +3,8 @@ package tables
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -82,7 +84,12 @@ func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, o
 	}
 
 	if !applied {
-		return ErrPreconditionFailed
+		return fmt.Errorf(
+			"precondition failed for LWT operation\nstatement:%v\nparameters:%v\narguments:%v",
+			stmt,
+			strings.Join(params, ", "),
+			additionalVals,
+		)
 	}
 
 	// Post-change hooks
