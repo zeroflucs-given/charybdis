@@ -10,7 +10,7 @@ import (
 // First item in a slice that passes the filters. If multiple filters are set, they are treated
 // as a logical AND. If no filters are set, will return the first item in the slice. If no items
 // match, the type default is returned.
-func First[T any](items []T, filters ...filtering.Expression[T]) T {
+func First[S ~[]T, T any](items S, filters ...filtering.Expression[T]) T {
 	filter := filtering.And(filters...)
 
 	var def T
@@ -26,7 +26,7 @@ func First[T any](items []T, filters ...filtering.Expression[T]) T {
 // FirstWithContext gets the first item in a slice that passes the filters. If multiple filters are set, they are treated
 // as a logical AND. If no filters are set, will return the first item in the slice. If no items
 // match, the type default is returned.
-func FirstWithContext[T any](ctx context.Context, items []T, filters ...filtering.ExpressionWithContext[T]) (T, error) {
+func FirstWithContext[S ~[]T, T any](ctx context.Context, items S, filters ...filtering.ExpressionWithContext[T]) (T, error) {
 	filter := filtering.AndWithContext(filters...)
 
 	var def T
@@ -44,9 +44,9 @@ func FirstWithContext[T any](ctx context.Context, items []T, filters ...filterin
 	return def, nil
 }
 
-// Except
-func Except[T comparable](items []T, exclusions ...T) []T {
-	result := make([]T, 0, len(items))
+// Except returns a slice containing all the elements from the slice `items` that don't match the elements in `exclusions`
+func Except[S ~[]T, T comparable](items S, exclusions ...T) S {
+	result := make(S, 0, len(items))
 	for _, item := range items {
 		if Contains(exclusions, item) {
 			continue
@@ -57,9 +57,9 @@ func Except[T comparable](items []T, exclusions ...T) []T {
 	return result
 }
 
-// Intersect
-func Intersect[T comparable](items []T, others ...T) []T {
-	result := make([]T, 0, len(items))
+// Intersect returns the intersection of the sets of `items` and `others`
+func Intersect[S ~[]T, T comparable](items S, others ...T) S {
+	result := make(S, 0, len(items))
 
 	for _, item := range items {
 		if Contains(others, item) {
@@ -70,11 +70,11 @@ func Intersect[T comparable](items []T, others ...T) []T {
 	return result
 }
 
-// Filter filters item in a list
-func Filter[T any](items []T, filters ...filtering.Expression[T]) []T {
+// Filter returns the elements from `items` that match the filtering rules `filters`
+func Filter[S ~[]T, T any](items S, filters ...filtering.Expression[T]) S {
 	filter := filtering.And(filters...)
 
-	output := make([]T, 0, len(items))
+	output := make(S, 0, len(items))
 	for i, v := range items {
 		if filter(i, v) {
 			output = append(output, v)
@@ -84,10 +84,10 @@ func Filter[T any](items []T, filters ...filtering.Expression[T]) []T {
 }
 
 // FilterWithContext filters item in a list
-func FilterWithContext[T any](ctx context.Context, items []T, filters ...filtering.ExpressionWithContext[T]) ([]T, error) {
+func FilterWithContext[S ~[]T, T any](ctx context.Context, items S, filters ...filtering.ExpressionWithContext[T]) (S, error) {
 	filter := filtering.AndWithContext(filters...)
 
-	output := make([]T, 0, len(items))
+	output := make(S, 0, len(items))
 	for i, v := range items {
 		ok, err := filter(ctx, i, v)
 		if err != nil {
@@ -103,7 +103,7 @@ func FilterWithContext[T any](ctx context.Context, items []T, filters ...filteri
 
 // Last item in a slice that matches the specified filters. Returns the type
 // default if none found.
-func Last[T any](items []T, filters ...filtering.Expression[T]) T {
+func Last[S ~[]T, T any](items S, filters ...filtering.Expression[T]) T {
 	filter := filtering.And(filters...)
 
 	var def T
@@ -119,7 +119,7 @@ func Last[T any](items []T, filters ...filtering.Expression[T]) T {
 
 // LastWithContext item in a slice that matches the specified filters. Returns the type
 // default if none found.
-func LastWithContext[T any](ctx context.Context, items []T, filters ...filtering.ExpressionWithContext[T]) (T, error) {
+func LastWithContext[S ~[]T, T any](ctx context.Context, items S, filters ...filtering.ExpressionWithContext[T]) (T, error) {
 	filter := filtering.AndWithContext(filters...)
 
 	var def T

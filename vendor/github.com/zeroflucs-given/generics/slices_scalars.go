@@ -9,7 +9,7 @@ import (
 
 // All returns true if no item in the list fails to meet the predicates. If multiple
 // predicates are passed, they are treated as logical AND operations.
-func All[T any](items []T, filters ...filtering.Expression[T]) bool {
+func All[S ~[]T, T any](items S, filters ...filtering.Expression[T]) bool {
 	filter := filtering.And(filters...)
 
 	for i, v := range items {
@@ -23,7 +23,7 @@ func All[T any](items []T, filters ...filtering.Expression[T]) bool {
 
 // AllWithContext is a context aware function that returns true if no item in the list fails to meet the predicate.
 // If multiple predicate passed, they are treated as logical AND operations.
-func AllWithContext[T any](ctx context.Context, items []T, filters ...filtering.ExpressionWithContext[T]) (bool, error) {
+func AllWithContext[S ~[]T, T any](ctx context.Context, items S, filters ...filtering.ExpressionWithContext[T]) (bool, error) {
 	filter := filtering.AndWithContext(filters...)
 
 	for i, v := range items {
@@ -42,7 +42,7 @@ func AllWithContext[T any](ctx context.Context, items []T, filters ...filtering.
 
 // Any returns true if any item in the slice matches the filter. If multiple predicates are passed,
 // they are treated as logical AND operations.
-func Any[T any](items []T, filters ...filtering.Expression[T]) bool {
+func Any[S ~[]T, T any](items S, filters ...filtering.Expression[T]) bool {
 	filter := filtering.And(filters...)
 
 	for i, v := range items {
@@ -55,7 +55,7 @@ func Any[T any](items []T, filters ...filtering.Expression[T]) bool {
 }
 
 // AnyWithContext is a context aware function that returns true if any item in the slice matches the filter.
-func AnyWithContext[T any](ctx context.Context, items []T, filters ...filtering.ExpressionWithContext[T]) (bool, error) {
+func AnyWithContext[S ~[]T, T any](ctx context.Context, items S, filters ...filtering.ExpressionWithContext[T]) (bool, error) {
 	filter := filtering.AndWithContext(filters...)
 
 	for i, v := range items {
@@ -71,7 +71,7 @@ func AnyWithContext[T any](ctx context.Context, items []T, filters ...filtering.
 }
 
 // Count returns how many items pass the filters
-func Count[T any](items []T, filters ...filtering.Expression[T]) int {
+func Count[S ~[]T, T any](items S, filters ...filtering.Expression[T]) int {
 	if len(filters) == 0 {
 		return len(items)
 	}
@@ -88,7 +88,7 @@ func Count[T any](items []T, filters ...filtering.Expression[T]) int {
 }
 
 // CountWithContext counts how many items pass the filter
-func CountWithContext[T any](ctx context.Context, items []T, filters ...filtering.ExpressionWithContext[T]) (int, error) {
+func CountWithContext[S ~[]T, T any](ctx context.Context, items S, filters ...filtering.ExpressionWithContext[T]) (int, error) {
 	if len(filters) == 0 {
 		return len(items), nil
 	}

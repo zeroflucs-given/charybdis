@@ -1,6 +1,5 @@
 #!/bin/bash
-set -e 
-clear
+set -e
 
 # Format all files
 echo "Formatting....."

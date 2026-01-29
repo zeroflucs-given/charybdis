@@ -1,7 +1,33 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
+ * Content before git sha 34fdeebefcbf183ed7f916f931aa0586fdaa1b40
+ * Copyright (c) 2016, The Gocql authors,
+ * provided under the BSD-3-Clause License.
+ * See the NOTICE file distributed with this work for additional information.
+ */
+
 package gocql
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -19,6 +45,7 @@ type ExecutableQuery interface {
 	IsIdempotent() bool
 	IsLWT() bool
 	GetCustomPartitioner() Partitioner
+	GetHostID() string
 
 	withContext(context.Context) ExecutableQuery
 
@@ -63,12 +90,29 @@ func (q *queryExecutor) speculate(ctx context.Context, qry ExecutableQuery, sp S
 }
 
 func (q *queryExecutor) executeQuery(qry ExecutableQuery) (*Iter, error) {
-	hostIter := q.policy.Pick(qry)
+	var hostIter NextHost
+
+	// check if the hostID is specified for the query,
+	// if true  - the query execute at the specified host.
+	// if false - the query execute at the host picked by HostSelectionPolicy
+	if hostID := qry.GetHostID(); hostID != "" {
+		pool, ok := q.pool.getPoolByHostID(hostID)
+		if !ok {
+			// if the specified host ID have no connection pool we return error
+			return nil, fmt.Errorf("query is targeting unknown host id %s: %w", hostID, ErrNoPool)
+		} else if pool.Size() == 0 {
+			// if the pool have no connection we return error
+			return nil, fmt.Errorf("query is targeting host id %s that driver is not connected to: %w", hostID, ErrNoConnectionsInPool)
+		}
+		hostIter = newSingleHost(pool.host, 5, 200*time.Millisecond).selectHost
+	} else {
+		hostIter = q.policy.Pick(qry)
+	}
 
 	// check if the query is not marked as idempotent, if
 	// it is, we force the policy to NonSpeculative
 	sp := qry.speculativeExecutionPolicy()
-	if !qry.IsIdempotent() || sp.Attempts() == 0 {
+	if qry.GetHostID() != "" || !qry.IsIdempotent() || sp.Attempts() == 0 {
 		return q.do(qry.Context(), qry, hostIter), nil
 	}
 
@@ -107,74 +151,107 @@ func (q *queryExecutor) executeQuery(qry ExecutableQuery) (*Iter, error) {
 }
 
 func (q *queryExecutor) do(ctx context.Context, qry ExecutableQuery, hostIter NextHost) *Iter {
-	selectedHost := hostIter()
 	rt := qry.retryPolicy()
-	lwt_rt, use_lwt_rt := rt.(LWTRetryPolicy)
-	// We only want to apply LWT policy to LWT queries
-	use_lwt_rt = use_lwt_rt && qry.IsLWT()
+	if rt == nil {
+		rt = &SimpleRetryPolicy{NumRetries: 3}
+	}
 
-	var lastErr error
-	var iter *Iter
-	for selectedHost != nil {
+	lwtRT, isRTSupportsLWT := rt.(LWTRetryPolicy)
+
+	var getShouldRetry func(qry RetryableQuery) bool
+	var getRetryType func(error) RetryType
+
+	if isRTSupportsLWT && qry.IsLWT() {
+		getShouldRetry = lwtRT.AttemptLWT
+		getRetryType = lwtRT.GetRetryTypeLWT
+	} else {
+		getShouldRetry = rt.Attempt
+		getRetryType = rt.GetRetryType
+	}
+
+	var potentiallyExecuted bool
+
+	execute := func(qry ExecutableQuery, selectedHost SelectedHost) (iter *Iter, retry RetryType) {
 		host := selectedHost.Info()
 		if host == nil || !host.IsUp() {
-			selectedHost = hostIter()
-			continue
+			return &Iter{
+				err: &QueryError{
+					err:                 ErrHostDown,
+					potentiallyExecuted: potentiallyExecuted,
+				},
+			}, RetryNextHost
 		}
-
 		pool, ok := q.pool.getPool(host)
 		if !ok {
-			selectedHost = hostIter()
-			continue
+			return &Iter{
+				err: &QueryError{
+					err:                 ErrNoPool,
+					potentiallyExecuted: potentiallyExecuted,
+				},
+			}, RetryNextHost
 		}
-
 		conn := pool.Pick(selectedHost.Token(), qry)
 		if conn == nil {
-			selectedHost = hostIter()
-			continue
+			return &Iter{
+				err: &QueryError{
+					err:                 ErrNoConnectionsInPool,
+					potentiallyExecuted: potentiallyExecuted,
+				},
+			}, RetryNextHost
 		}
-
 		iter = q.attemptQuery(ctx, qry, conn)
 		iter.host = selectedHost.Info()
 		// Update host
-		switch iter.err {
-		case context.Canceled, context.DeadlineExceeded, ErrNotFound:
-			// those errors represents logical errors, they should not count
-			// toward removing a node from the pool
+		if iter.err == nil {
+			return iter, RetryType(255)
+		}
+
+		switch {
+		case errors.Is(iter.err, context.Canceled),
+			errors.Is(iter.err, context.DeadlineExceeded):
 			selectedHost.Mark(nil)
-			return iter
+			potentiallyExecuted = true
+			retry = Rethrow
 		default:
 			selectedHost.Mark(iter.err)
+			retry = RetryType(255) // Don't enforce retry and get it from retry policy
 		}
 
-		// Exit if the query was successful
-		// or no retry policy defined
-		if iter.err == nil || rt == nil {
+		var qErr *QueryError
+		if errors.As(iter.err, &qErr) {
+			potentiallyExecuted = potentiallyExecuted || qErr.PotentiallyExecuted()
+			qErr.potentiallyExecuted = potentiallyExecuted
+			qErr.isIdempotent = qry.IsIdempotent()
+			iter.err = qErr
+		} else {
+			iter.err = &QueryError{
+				err:                 iter.err,
+				potentiallyExecuted: potentiallyExecuted,
+				isIdempotent:        qry.IsIdempotent(),
+			}
+		}
+		return iter, retry
+	}
+
+	var lastErr error
+	selectedHost := hostIter()
+	for selectedHost != nil {
+		iter, retryType := execute(qry, selectedHost)
+		if iter.err == nil {
 			return iter
 		}
-
-		// or retry policy decides to not retry anymore
-		if use_lwt_rt {
-			if !lwt_rt.AttemptLWT(qry) {
-				return iter
-			}
-		} else {
-			if !rt.Attempt(qry) {
-				return iter
-			}
-		}
-
 		lastErr = iter.err
 
-		var retry_type RetryType
-		if use_lwt_rt {
-			retry_type = lwt_rt.GetRetryTypeLWT(iter.err)
-		} else {
-			retry_type = rt.GetRetryType(iter.err)
+		// Exit if retry policy decides to not retry anymore
+		if retryType == RetryType(255) {
+			if !getShouldRetry(qry) {
+				return iter
+			}
+			retryType = getRetryType(iter.err)
 		}
 
 		// If query is unsuccessful, check the error with RetryPolicy to retry
-		switch retry_type {
+		switch retryType {
 		case Retry:
 			// retry on the same host
 			continue
@@ -189,11 +266,9 @@ func (q *queryExecutor) do(ctx context.Context, qry ExecutableQuery, hostIter Ne
 			return &Iter{err: ErrUnknownRetryType}
 		}
 	}
-
 	if lastErr != nil {
 		return &Iter{err: lastErr}
 	}
-
 	return &Iter{err: ErrNoConnections}
 }
 

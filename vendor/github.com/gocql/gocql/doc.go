@@ -1,6 +1,26 @@
-// Copyright (c) 2012-2015 The gocql Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
+ * Content before git sha 34fdeebefcbf183ed7f916f931aa0586fdaa1b40
+ * Copyright (c) 2016, The Gocql authors,
+ * provided under the BSD-3-Clause License.
+ * See the NOTICE file distributed with this work for additional information.
+ */
 
 // Package gocql implements a fast and robust Cassandra driver for the
 // Go programming language.
@@ -24,7 +44,7 @@
 //
 //	cluster.Keyspace = "example"
 //	cluster.Consistency = gocql.Quorum
-//	cluster.ProtoVersion = 4
+//	cluster.ProtoVersion = protoVersion4
 //
 // The driver tries to automatically detect the protocol version to use if not set, but you might want to set the
 // protocol version explicitly, as it's not defined which version will be used in certain situations (for example
@@ -60,6 +80,16 @@
 //	 	return err
 //	 }
 //	 defer session.Close()
+//
+// By default, PasswordAuthenticator will attempt to authenticate regardless of what implementation the server returns
+// in its AUTHENTICATE message as its authenticator, (e.g. org.apache.cassandra.auth.PasswordAuthenticator).  If you
+// wish to restrict this you may use PasswordAuthenticator.AllowedAuthenticators:
+//
+//	 cluster.Authenticator = gocql.PasswordAuthenticator {
+//			Username:              "user",
+//			Password:              "password"
+//			AllowedAuthenticators: []string{"org.apache.cassandra.auth.PasswordAuthenticator"},
+//	 }
 //
 // # Transport layer security
 //
@@ -280,7 +310,7 @@
 // # Batches
 //
 // The CQL protocol supports sending batches of DML statements (INSERT/UPDATE/DELETE) and so does gocql.
-// Use Session.NewBatch to create a new batch and then fill-in details of individual queries.
+// Use Session.Batch to create a new batch and then fill-in details of individual queries.
 // Then execute the batch with Session.ExecuteBatch.
 //
 // Logged batches ensure atomicity, either all or none of the operations in the batch will succeed, but they have

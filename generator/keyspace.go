@@ -89,6 +89,10 @@ func UsingLogger(logger *zap.Logger) KeyspaceOption {
 func CreateKeyspace(ctx context.Context, sess gocqlx.Session, keyspace string, options ...KeyspaceOption) error {
 	opts := CollectKeyspaceOptions(options)
 
+	if err := IsValidIdentifier(keyspace); err != nil {
+		return fmt.Errorf("invalid name for a keyspace: %w", err)
+	}
+
 	var keyspaceOptionClauses []string
 
 	replicationStrategy := "SimpleStrategy"

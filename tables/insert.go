@@ -76,10 +76,11 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, e
 	var applied bool
 	stmt, params := query.ToCql()
 	for {
-		applied, err = t.Session.ContextQuery(retryCtx, stmt, params).
+		q := t.Session.ContextQuery(retryCtx, stmt, params).
 			Consistency(t.writeConsistency).
-			BindStruct(instance).
-			ExecCASRelease()
+			BindStruct(instance)
+
+		applied, err = q.ExecCASRelease()
 
 		if err == nil {
 			break
@@ -88,6 +89,7 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, e
 		var wto *gocql.RequestErrWriteTimeout
 		retryable := errors.As(err, &wto)
 		if !retryable {
+			t.Logger.Debug("failure not retryable", zap.Error(err))
 			return err
 		}
 

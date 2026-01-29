@@ -7,10 +7,12 @@ import (
 
 // deleteOption is a simple base type for providing delete mutations
 type deleteOption struct {
-	mutator          func(q *gocqlx.Queryx) *gocqlx.Queryx
-	targetColumns    []string
-	targetPredicates []qb.Cmp
-	targetBindings   []any
+	mutator            func(q *gocqlx.Queryx) *gocqlx.Queryx
+	targetColumns      []string
+	targetPredicates   []qb.Cmp
+	targetBindings     []any
+	targetIfConditions []qb.Cmp
+	targetExists       bool
 }
 
 // applyToSelectBuilder applies this option to the given select builder
@@ -31,6 +33,14 @@ func (s *deleteOption) predicates() []qb.Cmp {
 
 func (s *deleteOption) bindings() []any {
 	return s.targetBindings
+}
+
+func (s *deleteOption) ifConditions() []qb.Cmp {
+	return s.targetIfConditions
+}
+
+func (s *deleteOption) ifExists() bool {
+	return s.targetExists
 }
 
 // DeleteColumns specifies the columns to delete from matched rows
@@ -57,7 +67,7 @@ func WithDeletionBindings(bindings ...any) DeleteOption {
 }
 
 // WithDeletionKey creates a query option that translates to a `name = value` statement in a `where` clause.
-// Note, don't use inbetween a WithPredicates and WithBindings option - that will mess up key -> value alignment
+// Note: don't use in between a WithPredicates and WithBindings option - that will mess up key -> value alignment
 func WithDeletionKey(name string, value any) DeleteOption {
 	return &deleteOption{
 		targetPredicates: []qb.Cmp{qb.Eq(name)},
@@ -66,10 +76,23 @@ func WithDeletionKey(name string, value any) DeleteOption {
 }
 
 // WithDeletionCondition creates a query option that translates to a `name op value` statement in a `where` clause.
-// Note, don't use inbetween a WithDeletePredicates and WithDeletionBindings option - that will mess up key -> value alignment
+// Note, don't use in between a WithDeletePredicates and WithDeletionBindings option - that will mess up key -> value alignment
 func WithDeletionCondition(cond qb.Cmp, value any) DeleteOption {
 	return &deleteOption{
 		targetPredicates: []qb.Cmp{cond},
 		targetBindings:   []any{value},
+	}
+}
+
+func WithDeleteIf(cond qb.Cmp, value any) DeleteOption {
+	return &deleteOption{
+		targetIfConditions: []qb.Cmp{cond},
+		targetBindings:     []any{value},
+	}
+}
+
+func WithDeleteIfExists() DeleteOption {
+	return &deleteOption{
+		targetExists: true,
 	}
 }

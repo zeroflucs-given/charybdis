@@ -52,3 +52,16 @@ func (t *CachedTask[T]) Get(ctx context.Context) (value *T, err error) {
 
 	return t.value, t.err
 }
+
+func (t *CachedTask[T]) RequireContext(ctx context.Context) *T {
+	val, err := t.Get(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	return val
+}
+
+func (t *CachedTask[T]) Require() *T {
+	return t.RequireContext(context.Background())
+}

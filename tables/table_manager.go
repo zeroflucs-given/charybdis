@@ -22,7 +22,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 	for _, opt := range options {
 		err := opt.mutateParameters(ctx, &params)
 		if err != nil {
-			return nil, fmt.Errorf("error applying table manager option: %w", err)
+			return nil, fmt.Errorf("applying table manager option: %w", err)
 		}
 	}
 
@@ -31,7 +31,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 	if params.TTL.Seconds() != 0 && params.TableSpec != nil {
 		extraOps = append(extraOps, metadata.DDLOperation{
 			Description:  "Add default TTL if non 0",
-			Command:      fmt.Sprintf("ALTER TABLE %s.%s WITH DEFAULT_TIME_TO_LIVE = %v;", params.Keyspace, params.TableSpec.Name, int64(params.TTL.Seconds())),
+			Command:      fmt.Sprintf("alter table %s.%s with default_time_to_live = %v;", params.Keyspace, params.TableSpec.Name, int64(params.TTL.Seconds())),
 			IgnoreErrors: []string{},
 		})
 	}
@@ -47,21 +47,23 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 			WithAdditionalDDL(extraOps...),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("error running table manager start hooks: %w", err)
+			return nil, fmt.Errorf("running table manager start hooks: %w", err)
 		}
 	}
 
 	// Validate table spec
 	errTable := params.TableSpec.Validate()
 	if errTable != nil {
-		return nil, fmt.Errorf("error validating table spec: %w", errTable)
+		return nil, fmt.Errorf("validating table spec: %w", errTable)
 	}
 
 	// Create our session
 	wrappedSession, err := gocqlx.WrapSession(params.SessionFactory(params.Keyspace))
 	if err != nil {
-		return nil, fmt.Errorf("error wrapping session: %w", err)
+		return nil, fmt.Errorf("wrapping session: %w", err)
 	}
+
+	wrappedSession.SetConsistency(gocql.All)
 
 	table := params.TableSpec.ToCQLX()
 

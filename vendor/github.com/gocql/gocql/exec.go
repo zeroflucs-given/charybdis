@@ -51,8 +51,7 @@ func NewSingleHostQueryExecutor(cfg *ClusterConfig) (e SingleHostQueryExecutor, 
 
 	// If protocol version not set assume 4 and skip discovery
 	if c.ProtoVersion == 0 {
-		e.session.logger.Print("gocql: setting protocol version 4")
-		c.ProtoVersion = 4
+		c.ProtoVersion = protoVersion4
 	}
 
 	// Close in case of error
@@ -70,7 +69,7 @@ func NewSingleHostQueryExecutor(cfg *ClusterConfig) (e SingleHostQueryExecutor, 
 	}
 
 	var hosts []*HostInfo
-	if hosts, err = addrsToHosts(c.Hosts, c.Port, c.Logger); err != nil {
+	if hosts, err = addrsToHosts(c.DNSResolver, c.translateAddressPort, c.Hosts, c.Port, c.Logger); err != nil {
 		err = fmt.Errorf("addrs to hosts: %w", err)
 		return
 	}
@@ -95,6 +94,7 @@ func NewSingleHostQueryExecutor(cfg *ClusterConfig) (e SingleHostQueryExecutor, 
 		}
 		err = e.control.setupConn(conn)
 		if err == nil {
+			conn.finalizeConnection()
 			break
 		}
 		e.control.session.logger.Printf("gocql: unable setup control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)

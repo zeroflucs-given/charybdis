@@ -2,8 +2,10 @@
 .DS_Store
 thumbs.db
 .idea
+.vscode
 
 coverage.html
+coverage.out
 *.log
 
 # Profiling stuff
@@ -11,3 +13,5 @@ coverage.html
 *.test
 *.pdf
 *.out
+
+!/vendor/**

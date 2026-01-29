@@ -1,3 +1,27 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
+ * Content before git sha 34fdeebefcbf183ed7f916f931aa0586fdaa1b40
+ * Copyright (c) 2016, The Gocql authors,
+ * provided under the BSD-3-Clause License.
+ * See the NOTICE file distributed with this work for additional information.
+ */
+
 package gocql
 
 import (
@@ -7,15 +31,13 @@ import (
 )
 
 type eventDebouncer struct {
-	name   string
-	timer  *time.Timer
-	mu     sync.Mutex
-	events []frame
-
+	logger   StdLogger
+	timer    *time.Timer
 	callback func([]frame)
 	quit     chan struct{}
-
-	logger StdLogger
+	name     string
+	events   []frame
+	mu       sync.Mutex
 }
 
 func newEventDebouncer(name string, eventHandler func([]frame), logger StdLogger) *eventDebouncer {
@@ -110,23 +132,33 @@ func (s *Session) handleSchemaEvent(frames []frame) {
 	for _, frame := range frames {
 		switch f := frame.(type) {
 		case *schemaChangeKeyspace:
-			s.schemaDescriber.clearSchema(f.keyspace)
+			s.metadataDescriber.clearSchema(f.keyspace)
 			s.handleKeyspaceChange(f.keyspace, f.change)
 		case *schemaChangeTable:
-			s.schemaDescriber.clearSchema(f.keyspace)
+			s.metadataDescriber.clearSchema(f.keyspace)
+			s.handleTableChange(f.keyspace, f.object, f.change)
 		case *schemaChangeAggregate:
-			s.schemaDescriber.clearSchema(f.keyspace)
+			s.metadataDescriber.clearSchema(f.keyspace)
 		case *schemaChangeFunction:
-			s.schemaDescriber.clearSchema(f.keyspace)
+			s.metadataDescriber.clearSchema(f.keyspace)
 		case *schemaChangeType:
-			s.schemaDescriber.clearSchema(f.keyspace)
+			s.metadataDescriber.clearSchema(f.keyspace)
 		}
 	}
 }
 
 func (s *Session) handleKeyspaceChange(keyspace, change string) {
 	s.control.awaitSchemaAgreement()
+	if change == "DROPPED" || change == "UPDATED" {
+		s.metadataDescriber.RemoveTabletsWithKeyspace(keyspace)
+	}
 	s.policy.KeyspaceChanged(KeyspaceUpdateEvent{Keyspace: keyspace, Change: change})
+}
+
+func (s *Session) handleTableChange(keyspace, table, change string) {
+	if change == "DROPPED" || change == "UPDATED" {
+		s.metadataDescriber.RemoveTabletsWithTable(keyspace, table)
+	}
 }
 
 // handleNodeEvent handles inbound status and topology change events.
@@ -174,7 +206,7 @@ func (s *Session) handleNodeEvent(frames []frame) {
 		}
 
 		// ignore events we received if they were disabled
-		// see https://github.com/gocql/gocql/issues/1591
+		// see https://github.com/apache/cassandra-gocql-driver/issues/1591
 		switch f.change {
 		case "UP":
 			if !s.cfg.Events.DisableNodeStatusEvents {
@@ -193,7 +225,7 @@ func (s *Session) handleNodeUp(eventIp net.IP, eventPort int) {
 		s.logger.Printf("gocql: Session.handleNodeUp: %s:%d\n", eventIp.String(), eventPort)
 	}
 
-	host, ok := s.ring.getHostByIP(eventIp.String())
+	host, ok := s.hostSource.getHostByIP(eventIp.String())
 	if !ok {
 		s.debounceRingRefresh()
 		return
@@ -232,7 +264,7 @@ func (s *Session) handleNodeDown(ip net.IP, port int) {
 		s.logger.Printf("gocql: Session.handleNodeDown: %s:%d\n", ip.String(), port)
 	}
 
-	host, ok := s.ring.getHostByIP(ip.String())
+	host, ok := s.hostSource.getHostByIP(ip.String())
 	if ok {
 		host.setState(NodeDown)
 		if s.cfg.filterHost(host) {

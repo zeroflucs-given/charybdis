@@ -8,13 +8,13 @@ import (
 )
 
 // Concatenate all lists together
-func Concatenate[T any](lists ...[]T) []T {
+func Concatenate[S ~[]T, T any](lists ...S) S {
 	c := 0
 	for _, v := range lists {
 		c += len(v)
 	}
 
-	result := make([]T, 0, c)
+	result := make(S, 0, c)
 	for _, v := range lists {
 		result = append(result, v...)
 	}
@@ -23,7 +23,7 @@ func Concatenate[T any](lists ...[]T) []T {
 }
 
 // Contains returns true if the set contains the specified value
-func Contains[T comparable](items []T, value T) bool {
+func Contains[S ~[]T, T comparable](items S, value T) bool {
 	for _, v := range items {
 		if v == value {
 			return true
@@ -34,7 +34,7 @@ func Contains[T comparable](items []T, value T) bool {
 
 // Cut removes the head of a list, returning it and the remainder of the list.
 // If the input list is empty, cut returns the type-default.
-func Cut[T any](items []T) (T, []T) {
+func Cut[S ~[]T, T any](items S) (T, S) {
 	var dflt T
 	if len(items) == 0 {
 		return dflt, nil
@@ -47,9 +47,9 @@ func Cut[T any](items []T) (T, []T) {
 
 // DefaultIfEmpty checks to see if the specified slice is empty
 // and if so, creates a slice with a specified default value.
-func DefaultIfEmpty[T any](items []T, def T) []T {
+func DefaultIfEmpty[S ~[]T, T any](items S, def T) S {
 	if len(items) == 0 {
-		return []T{
+		return S{
 			def,
 		}
 	}
@@ -58,7 +58,7 @@ func DefaultIfEmpty[T any](items []T, def T) []T {
 }
 
 // FirstIndexOf returns the first index of an item in the slice
-func FirstIndexOf[T comparable](v T, items []T) int {
+func FirstIndexOf[S ~[]T, T comparable](v T, items S) int {
 	for i := 0; i < len(items); i++ {
 		if items[i] == v {
 			return i
@@ -69,7 +69,7 @@ func FirstIndexOf[T comparable](v T, items []T) int {
 }
 
 // LastIndexOf returns the last index of an item in the slice
-func LastIndexOf[T comparable](v T, items []T) int {
+func LastIndexOf[S ~[]T, T comparable](v T, items S) int {
 	for i := len(items) - 1; i >= 0; i-- {
 		if items[i] == v {
 			return i
@@ -80,7 +80,7 @@ func LastIndexOf[T comparable](v T, items []T) int {
 }
 
 // Reverse creates a reversed copy of the slice
-func Reverse[T any](items []T) []T {
+func Reverse[S ~[]T, T any](items S) S {
 	output := make([]T, len(items))
 	for i, v := range items {
 		output[len(items)-i-1] = v
@@ -89,7 +89,7 @@ func Reverse[T any](items []T) []T {
 }
 
 // Skip the first N items of the slice.
-func Skip[T any](items []T, n int) []T {
+func Skip[S ~[]T, T any](items S, n int) S {
 	if len(items) <= n {
 		return nil
 	}
@@ -98,7 +98,7 @@ func Skip[T any](items []T, n int) []T {
 }
 
 // Take up to N items from the slice
-func Take[T any](items []T, n int) []T {
+func Take[S ~[]T, T any](items S, n int) S {
 	if len(items) == 0 {
 		return nil
 	} else if len(items) < n {
@@ -109,7 +109,7 @@ func Take[T any](items []T, n int) []T {
 }
 
 // TakeUntil takes items from the slice until the first item that passes the predicate.
-func TakeUntil[T any](items []T, filters ...filtering.Expression[T]) []T {
+func TakeUntil[S ~[]T, T any](items S, filters ...filtering.Expression[T]) S {
 	filter := filtering.Not(filtering.And(filters...))
 	var result []T
 
@@ -125,9 +125,9 @@ func TakeUntil[T any](items []T, filters ...filtering.Expression[T]) []T {
 }
 
 // TakeUntilWithContext takes items from the slice until the first item that passes the predicate.
-func TakeUntilWithContext[T any](ctx context.Context, items []T, filters ...filtering.ExpressionWithContext[T]) ([]T, error) {
+func TakeUntilWithContext[S ~[]T, T any](ctx context.Context, items S, filters ...filtering.ExpressionWithContext[T]) (S, error) {
 	filter := filtering.NotWithContext(filtering.AndWithContext(filters...))
-	var result []T
+	var result S
 
 	for i, v := range items {
 		match, err := filter(ctx, i, v)
@@ -145,7 +145,7 @@ func TakeUntilWithContext[T any](ctx context.Context, items []T, filters ...filt
 }
 
 // TakeWhile takes items from the slice until the first item that fails the predicate.
-func TakeWhile[T any](items []T, filters ...filtering.Expression[T]) []T {
+func TakeWhile[S ~[]T, T any](items S, filters ...filtering.Expression[T]) S {
 	filter := filtering.And(filters...)
 	var result []T
 
@@ -161,9 +161,9 @@ func TakeWhile[T any](items []T, filters ...filtering.Expression[T]) []T {
 }
 
 // TakeWhileWithContext takes items from the slice until the first item that fails the predicate.
-func TakeWhileWithContext[T any](ctx context.Context, items []T, filters ...filtering.ExpressionWithContext[T]) ([]T, error) {
+func TakeWhileWithContext[S ~[]T, T any](ctx context.Context, items S, filters ...filtering.ExpressionWithContext[T]) (S, error) {
 	filter := filtering.AndWithContext(filters...)
-	var result []T
+	var result S
 
 	for i, v := range items {
 		match, err := filter(ctx, i, v)

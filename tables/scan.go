@@ -17,6 +17,9 @@ func (t *baseManagerImpl[T]) Scan(ctx context.Context, fn PageHandlerFn[T], opts
 		stmt, params := builder.ToCql()
 
 		query := sess.ContextQuery(ctx, stmt, params)
+
+		// t.Logger.Debug("scan statement", zap.String("query", query.String()))
+
 		return query
 	}, fn, opts...)
 }

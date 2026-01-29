@@ -1,6 +1,26 @@
-// Copyright (c) 2012 The gocql Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
+ * Content before git sha 34fdeebefcbf183ed7f916f931aa0586fdaa1b40
+ * Copyright (c) 2012, The Gocql authors,
+ * provided under the BSD-3-Clause License.
+ * See the NOTICE file distributed with this work for additional information.
+ */
 
 package gocql
 
@@ -10,6 +30,10 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/gocql/gocql/tablets"
+
+	"github.com/gocql/gocql/debounce"
 )
 
 // interface to implement to receive the host information
@@ -23,20 +47,17 @@ type SetPartitioner interface {
 }
 
 // interface to implement to receive the tablets value
-// Experimental, this interface and use may change
 type SetTablets interface {
-	SetTablets(tablets []*TabletInfo)
+	SetTablets(tablets tablets.TabletInfoList)
 }
 
 type policyConnPool struct {
-	session *Session
-
-	port     int
-	numConns int
-	keyspace string
-
-	mu            sync.RWMutex
+	session       *Session
 	hostConnPools map[string]*hostConnPool
+	keyspace      string
+	port          int
+	numConns      int
+	mu            sync.RWMutex
 }
 
 func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
@@ -51,7 +72,7 @@ func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
 			if cfg.SocketKeepalive > 0 {
 				d.KeepAlive = cfg.SocketKeepalive
 			}
-			dialer = &ScyllaShardAwareDialer{d}
+			dialer = &ScyllaShardAwareDialer{Dialer: d}
 		}
 
 		hostDialer = &scyllaDialer{
@@ -65,8 +86,8 @@ func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
 	return &ConnConfig{
 		ProtoVersion:   cfg.ProtoVersion,
 		CQLVersion:     cfg.CQLVersion,
-		Timeout:        cfg.Timeout,
 		WriteTimeout:   cfg.WriteTimeout,
+		ReadTimeout:    cfg.ReadTimeout,
 		ConnectTimeout: cfg.ConnectTimeout,
 		Dialer:         cfg.Dialer,
 		HostDialer:     hostDialer,
@@ -175,6 +196,13 @@ func (p *policyConnPool) getPool(host *HostInfo) (pool *hostConnPool, ok bool) {
 	return
 }
 
+func (p *policyConnPool) getPoolByHostID(hostID string) (pool *hostConnPool, ok bool) {
+	p.mu.RLock()
+	pool, ok = p.hostConnPools[hostID]
+	p.mu.RUnlock()
+	return
+}
+
 func (p *policyConnPool) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -203,7 +231,7 @@ func (p *policyConnPool) addHost(host *HostInfo) {
 	}
 	p.mu.Unlock()
 
-	pool.fill()
+	pool.fill_debounce()
 }
 
 func (p *policyConnPool) removeHost(hostID string) {
@@ -223,17 +251,17 @@ func (p *policyConnPool) removeHost(hostID string) {
 // hostConnPool is a connection pool for a single host.
 // Connection selection is based on a provided ConnSelectionPolicy
 type hostConnPool struct {
-	session  *Session
-	host     *HostInfo
-	size     int
-	keyspace string
-	// protection for connPicker, closed, filling
-	mu         sync.RWMutex
 	connPicker ConnPicker
-	closed     bool
-	filling    bool
-
-	logger StdLogger
+	logger     StdLogger
+	session    *Session
+	host       *HostInfo
+	debouncer  *debounce.SimpleDebouncer
+	keyspace   string
+	size       int
+	// protection for connPicker, closed, filling
+	mu      sync.RWMutex
+	closed  bool
+	filling bool
 }
 
 func (h *hostConnPool) String() string {
@@ -256,6 +284,7 @@ func newHostConnPool(session *Session, host *HostInfo, port, size int,
 		filling:    false,
 		closed:     false,
 		logger:     session.logger,
+		debouncer:  debounce.NewSimpleDebouncer(),
 	}
 
 	// the pool is not filled or connected
@@ -274,7 +303,7 @@ func (pool *hostConnPool) Pick(token Token, qry ExecutableQuery) *Conn {
 	size, missing := pool.connPicker.Size()
 	if missing > 0 {
 		// try to fill the pool
-		go pool.fill()
+		go pool.fill_debounce()
 
 		if size == 0 {
 			return nil
@@ -385,6 +414,10 @@ func (pool *hostConnPool) fill() {
 	}()
 }
 
+func (pool *hostConnPool) fill_debounce() {
+	pool.debouncer.Debounce(pool.fill)
+}
+
 func (pool *hostConnPool) logConnectErr(err error) {
 	if opErr, ok := err.(*net.OpError); ok && (opErr.Op == "dial" || opErr.Op == "read") {
 		// connection refused
@@ -418,7 +451,7 @@ func (pool *hostConnPool) fillingStopped(err error) {
 	pool.mu.Unlock()
 
 	// if we errored and the size is now zero, make sure the host is marked as down
-	// see https://github.com/gocql/gocql/issues/1614
+	// see https://github.com/apache/cassandra-gocql-driver/issues/1614
 	if gocqlDebug {
 		pool.logger.Printf("gocql: conns of pool after stopped %q: %v\n", host.ConnectAddress(), count)
 	}
@@ -512,6 +545,7 @@ func (pool *hostConnPool) connect() (err error) {
 	// lazily initialize the connPicker when we know the required type
 	pool.initConnPicker(conn)
 	pool.connPicker.Put(conn)
+	conn.finalizeConnection()
 
 	return nil
 }
@@ -521,8 +555,8 @@ func (pool *hostConnPool) initConnPicker(conn *Conn) {
 		return
 	}
 
-	if isScyllaConn(conn) {
-		pool.connPicker = newScyllaConnPicker(conn)
+	if conn.isScyllaConn() {
+		pool.connPicker = newScyllaConnPicker(conn, pool.logger)
 		return
 	}
 
@@ -551,5 +585,5 @@ func (pool *hostConnPool) HandleError(conn *Conn, err error, closed bool) {
 	}
 
 	pool.connPicker.Remove(conn)
-	go pool.fill()
+	go pool.fill_debounce()
 }
