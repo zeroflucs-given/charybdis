@@ -63,8 +63,6 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 		return nil, fmt.Errorf("wrapping session: %w", err)
 	}
 
-	wrappedSession.SetConsistency(gocql.All)
-
 	table := params.TableSpec.ToCQLX()
 
 	return &tableManagerImpl[T]{
