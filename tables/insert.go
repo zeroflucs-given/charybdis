@@ -80,7 +80,13 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, e
 			Consistency(t.writeConsistency).
 			BindStruct(instance)
 
+		queryString := q.String()
 		applied, err = q.ExecCASRelease()
+		t.Logger.Debug("insert", zap.String("query", queryString))
+
+		if !applied {
+			t.Logger.Warn("inserted no rows", zap.String("query", queryString))
+		}
 
 		if err == nil {
 			break

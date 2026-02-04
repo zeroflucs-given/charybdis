@@ -38,10 +38,11 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 				Consistency(t.writeConsistency).
 				BindStruct(instance)
 
+			queryString := q.String()
 			applied, err := q.ExecCASRelease()
 
 			if !applied {
-				t.Logger.Warn("delete effected no rows", zap.String("query", q.String()))
+				t.Logger.Warn("delete effected no rows", zap.String("query", queryString))
 			}
 
 			if err == nil {
@@ -96,10 +97,11 @@ func (t *tableManagerImpl[T]) DeleteByPrimaryKey(ctx context.Context, keys ...an
 				Consistency(t.writeConsistency).
 				Bind(keys...)
 
+			queryString := q.String()
 			applied, err := q.ExecCASRelease()
 
 			if !applied {
-				t.Logger.Warn("delete effected no rows", zap.String("query", q.String()))
+				t.Logger.Warn("delete effected no rows", zap.String("query", queryString))
 			}
 
 			if err == nil {
@@ -179,15 +181,16 @@ func (t *tableManagerImpl[T]) DeleteUsingOptions(ctx context.Context, opts ...De
 			}
 			query.Bind(bindings...)
 
-			t.Logger.Debug("delete using options", zap.String("query", query.String()))
+			queryString := query.String()
+			t.Logger.Debug("delete using options", zap.String("query", queryString))
 
 			applied, err := query.ExecCASRelease()
 			if !applied {
-				t.Logger.Warn("delete effected no rows", zap.String("query", query.String()))
+				t.Logger.Warn("delete effected no rows", zap.String("query", queryString))
 			}
 
 			if err == nil {
-				t.Logger.Info("no error")
+				t.Logger.Debug("no error")
 				break
 			}
 
