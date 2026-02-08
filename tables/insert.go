@@ -85,7 +85,7 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, e
 		t.Logger.Debug("insert", zap.String("query", queryString))
 
 		if !applied {
-			t.Logger.Warn("inserted no rows", zap.String("query", queryString))
+			t.Logger.Debug("inserted no rows", zap.String("query", queryString))
 		}
 
 		if err == nil {

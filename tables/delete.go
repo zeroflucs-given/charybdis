@@ -187,9 +187,11 @@ func (t *tableManagerImpl[T]) DeleteUsingOptions(ctx context.Context, opts ...De
 
 			var err error
 			if isLWT {
-				applied, casErr := query.ExecCASRelease()
+				
+
+			applied, casErr := query.ExecCASRelease()
 				if !applied {
-					t.Logger.Warn("delete effected no rows", zap.String("query", queryString))
+					t.Logger.Debug("delete effected no rows", zap.String("query", queryString))
 				}
 				err = casErr
 			} else {
