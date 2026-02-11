@@ -39,12 +39,9 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 				BindStruct(instance)
 
 			queryString := q.String()
-			applied, err := q.ExecCASRelease()
+			t.Logger.Debug("delete using struct binding", zap.String("query", queryString))
 
-			if !applied {
-				t.Logger.Warn("delete effected no rows", zap.String("query", queryString))
-			}
-
+			err := q.Exec()
 			if err == nil {
 				break
 			}
@@ -52,7 +49,7 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 			var wto *gocql.RequestErrWriteTimeout
 			retryable := errors.As(err, &wto)
 			if !retryable {
-				t.Logger.Debug("failure not retryable", zap.Error(err))
+				t.Logger.Debug("failure not retryable", zap.String("query", queryString), zap.Error(err))
 				return err
 			}
 
@@ -98,12 +95,9 @@ func (t *tableManagerImpl[T]) DeleteByPrimaryKey(ctx context.Context, keys ...an
 				Bind(keys...)
 
 			queryString := q.String()
-			applied, err := q.ExecCASRelease()
+			t.Logger.Debug("delete by primary key", zap.String("query", queryString))
 
-			if !applied {
-				t.Logger.Warn("delete effected no rows", zap.String("query", queryString))
-			}
-
+			err := q.Exec()
 			if err == nil {
 				break
 			}
@@ -198,7 +192,6 @@ func (t *tableManagerImpl[T]) DeleteUsingOptions(ctx context.Context, opts ...De
 			}
 
 			if err == nil {
-				t.Logger.Debug("no error")
 				break
 			}
 
