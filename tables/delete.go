@@ -164,10 +164,11 @@ func (t *tableManagerImpl[T]) DeleteUsingOptions(ctx context.Context, opts ...De
 		isLWT := len(ifConditions) > 0 || ifExists
 		builder := qb.Delete(t.qualifiedTableName).
 			Columns(cols...).
-			Where(predicates...).
-			If(ifConditions...)
+			Where(predicates...)
 
-		if len(ifConditions) == 0 && ifExists {
+		if len(ifConditions) > 0 {
+			builder = builder.If(ifConditions...)
+		} else if ifExists {
 			builder = builder.Existing()
 		}
 
@@ -187,9 +188,7 @@ func (t *tableManagerImpl[T]) DeleteUsingOptions(ctx context.Context, opts ...De
 
 			var err error
 			if isLWT {
-				
-
-			applied, casErr := query.ExecCASRelease()
+				applied, casErr := query.ExecCASRelease()
 				if !applied {
 					t.Logger.Debug("delete effected no rows", zap.String("query", queryString))
 				}
