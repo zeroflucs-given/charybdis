@@ -57,9 +57,11 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, e
 		return err
 	}
 
+	isLWT := false
 	if enforceNotExists {
 		// We must not exist
 		opts = append(opts, WithNotExists())
+		isLWT = true
 	}
 
 	// Build our query
@@ -73,19 +75,26 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, e
 	retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
 	defer cancel()
 
-	var applied bool
 	stmt, params := query.ToCql()
+
+	var applied bool
+	q := t.Session.ContextQuery(retryCtx, stmt, params).
+		Consistency(t.writeConsistency).
+		BindStruct(instance)
+
+	queryString := q.String()
+
+	t.Logger.Debug("insert", zap.String("query", queryString))
+	defer q.Release()
+
 	for {
-		q := t.Session.ContextQuery(retryCtx, stmt, params).
-			Consistency(t.writeConsistency).
-			BindStruct(instance)
-
-		queryString := q.String()
-		applied, err = q.ExecCASRelease()
-		t.Logger.Debug("insert", zap.String("query", queryString))
-
-		if !applied {
-			t.Logger.Debug("inserted no rows", zap.String("query", queryString))
+		if isLWT {
+			applied, err = q.ExecCAS()
+			if !applied {
+				t.Logger.Debug("inserted no rows", zap.String("query", queryString))
+			}
+		} else {
+			err = q.Exec()
 		}
 
 		if err == nil {
@@ -109,7 +118,7 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, e
 		)
 	}
 
-	if !applied {
+	if isLWT && !applied {
 		return ErrPreconditionFailed
 	}
 

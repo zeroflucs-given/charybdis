@@ -30,17 +30,19 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 		retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
 		defer cancel()
 
+		q := t.Table.
+			DeleteBuilder().
+			Existing().
+			QueryContext(retryCtx, t.Session).
+			Consistency(t.writeConsistency).
+			BindStruct(instance)
+
+		queryString := q.String()
+		t.Logger.Debug("delete using struct binding", zap.String("query", queryString))
+
+		defer q.Release()
+
 		for {
-			q := t.Table.
-				DeleteBuilder().
-				Existing().
-				QueryContext(retryCtx, t.Session).
-				Consistency(t.writeConsistency).
-				BindStruct(instance)
-
-			queryString := q.String()
-			t.Logger.Debug("delete using struct binding", zap.String("query", queryString))
-
 			err := q.Exec()
 			if err == nil {
 				break
@@ -86,17 +88,19 @@ func (t *tableManagerImpl[T]) DeleteByPrimaryKey(ctx context.Context, keys ...an
 		retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
 		defer cancel()
 
+		q := t.Table.
+			DeleteBuilder().
+			Existing().
+			QueryContext(retryCtx, t.Session).
+			Consistency(t.writeConsistency).
+			Bind(keys...)
+
+		queryString := q.String()
+		t.Logger.Debug("delete by primary key", zap.String("query", queryString))
+
+		defer q.Release()
+
 		for {
-			q := t.Table.
-				DeleteBuilder().
-				Existing().
-				QueryContext(retryCtx, t.Session).
-				Consistency(t.writeConsistency).
-				Bind(keys...)
-
-			queryString := q.String()
-			t.Logger.Debug("delete by primary key", zap.String("query", queryString))
-
 			err := q.Exec()
 			if err == nil {
 				break
@@ -166,29 +170,31 @@ func (t *tableManagerImpl[T]) DeleteUsingOptions(ctx context.Context, opts ...De
 			builder = builder.Existing()
 		}
 
+		query := t.Session.
+			Query(builder.ToCql()).
+			WithContext(retryCtx).
+			Consistency(t.writeConsistency)
+
+		for _, opt := range opts {
+			query = opt.applyToQuery(query)
+		}
+		query.Bind(bindings...)
+
+		queryString := query.String()
+		t.Logger.Debug("delete using options", zap.String("query", queryString))
+
+		defer query.Release()
+
 		for {
-			query := t.Session.
-				Query(builder.ToCql()).
-				WithContext(retryCtx).
-				Consistency(t.writeConsistency)
-
-			for _, opt := range opts {
-				query = opt.applyToQuery(query)
-			}
-			query.Bind(bindings...)
-
-			queryString := query.String()
-			t.Logger.Debug("delete using options", zap.String("query", queryString))
-
 			var err error
 			if isLWT {
-				applied, casErr := query.ExecCASRelease()
+				var applied bool
+				applied, err = query.ExecCAS()
 				if !applied {
 					t.Logger.Debug("delete effected no rows", zap.String("query", queryString))
 				}
-				err = casErr
 			} else {
-				err = query.ExecRelease()
+				err = query.Exec()
 			}
 
 			if err == nil {
