@@ -11,10 +11,14 @@ github.com/go-logr/logr/funcr
 # github.com/go-logr/stdr v1.2.2
 ## explicit; go 1.16
 github.com/go-logr/stdr
-# github.com/gocql/gocql v1.7.0 => github.com/scylladb/gocql v1.16.1
+# github.com/gocql/gocql v1.7.0 => github.com/scylladb/gocql v1.17.1
 ## explicit; go 1.25.0
 github.com/gocql/gocql
 github.com/gocql/gocql/debounce
+github.com/gocql/gocql/events
+github.com/gocql/gocql/internal/debug
+github.com/gocql/gocql/internal/eventbus
+github.com/gocql/gocql/internal/frame
 github.com/gocql/gocql/internal/lru
 github.com/gocql/gocql/internal/murmur
 github.com/gocql/gocql/internal/streams
@@ -58,11 +62,11 @@ github.com/pmezard/go-difflib/difflib
 # github.com/scylladb/go-reflectx v1.0.1
 ## explicit
 github.com/scylladb/go-reflectx
-# github.com/scylladb/gocqlx/v2 v2.8.0
-## explicit; go 1.17
-github.com/scylladb/gocqlx/v2
-github.com/scylladb/gocqlx/v2/qb
-github.com/scylladb/gocqlx/v2/table
+# github.com/scylladb/gocqlx/v3 v3.0.4
+## explicit; go 1.21
+github.com/scylladb/gocqlx/v3
+github.com/scylladb/gocqlx/v3/qb
+github.com/scylladb/gocqlx/v3/table
 # github.com/stretchr/testify v1.11.1
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
@@ -160,4 +164,4 @@ gopkg.in/inf.v0
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# github.com/gocql/gocql => github.com/scylladb/gocql v1.16.1
+# github.com/gocql/gocql => github.com/scylladb/gocql v1.17.1

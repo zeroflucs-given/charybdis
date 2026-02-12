@@ -1,8 +1,8 @@
 package tables
 
 import (
-	"github.com/scylladb/gocqlx/v2"
-	"github.com/scylladb/gocqlx/v2/qb"
+	"github.com/scylladb/gocqlx/v3"
+	"github.com/scylladb/gocqlx/v3/qb"
 )
 
 // deleteOption is a simple base type for providing delete mutations

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/scylladb/gocqlx/v2"
+	"github.com/scylladb/gocqlx/v3"
 	"go.uber.org/zap"
 
 	"github.com/zeroflucs-given/charybdis/metadata"

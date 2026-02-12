@@ -3,8 +3,8 @@ package tables
 import (
 	"context"
 
-	"github.com/scylladb/gocqlx/v2"
-	"github.com/scylladb/gocqlx/v2/qb"
+	"github.com/scylladb/gocqlx/v3"
+	"github.com/scylladb/gocqlx/v3/qb"
 )
 
 // Scan performs an interactive scan of the data in the table.

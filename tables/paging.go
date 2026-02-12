@@ -3,7 +3,7 @@ package tables
 import (
 	"context"
 
-	"github.com/scylladb/gocqlx/v2"
+	"github.com/scylladb/gocqlx/v3"
 )
 
 // PageHandlerFn is a function used when querying a block of records from the table. If true is returned

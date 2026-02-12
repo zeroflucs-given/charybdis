@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gocql/gocql"
-	"github.com/scylladb/gocqlx/v2"
+	"github.com/scylladb/gocqlx/v3"
 )
 
 // Version holds software version information that typically specified in the form: z.y.z-ww
@@ -22,7 +22,7 @@ func GetScyllaVersion(ctx context.Context, sess gocqlx.Session) (Version, error)
 	v := Version{}
 
 	var version string
-	err := sess.ContextQuery(ctx, "SELECT version FROM system.versions", nil).Consistency(gocql.One).Get(&version)
+	err := sess.ContextQuery(ctx, "select version from system.versions", nil).Consistency(gocql.One).Get(&version)
 	if err != nil {
 		return v, err
 	}

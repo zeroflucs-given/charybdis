@@ -1,8 +1,8 @@
 package tables
 
 import (
-	"github.com/scylladb/gocqlx/v2"
-	"github.com/scylladb/gocqlx/v2/qb"
+	"github.com/scylladb/gocqlx/v3"
+	"github.com/scylladb/gocqlx/v3/qb"
 
 	"github.com/zeroflucs-given/generics"
 )

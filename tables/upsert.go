@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
-	"github.com/scylladb/gocqlx/v2/qb"
+	"github.com/scylladb/gocqlx/v3/qb"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )

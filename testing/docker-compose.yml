@@ -1,7 +1,9 @@
 services:
   scylla:
-    image: scylladb/scylla
+    image: scylladb/scylla:2025.2.1
     command:
+      - --api-address
+      - 0.0.0.0
       - --rpc-address
       - 0.0.0.0
       - --broadcast-rpc-address
@@ -9,12 +11,13 @@ services:
       - --skip-wait-for-gossip-to-settle
       - "0"
       - --developer-mode
-      - "0"
+      - "1"
       - --smp
-      - "2"
+      - "1"
 #      - --alternator-port
 #      - "8000"
 #      - --alternator-write-isolation
 #      - lwt
     ports:
       - 9042:9042 # CQL
+      - "10000:10000"

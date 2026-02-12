@@ -38,6 +38,9 @@ import (
 	"unicode"
 
 	"github.com/gocql/gocql/debounce"
+	"github.com/gocql/gocql/events"
+	"github.com/gocql/gocql/internal/debug"
+	"github.com/gocql/gocql/internal/eventbus"
 	"github.com/gocql/gocql/internal/lru"
 	"github.com/gocql/gocql/tablets"
 )
@@ -52,49 +55,45 @@ import (
 // and automatically sets a default consistency level on all operations
 // that do not have a consistency level set.
 type Session struct {
-	policy          HostSelectionPolicy
-	warningHandler  WarningHandler
-	control         controlConnection
-	ctx             context.Context
-	logger          StdLogger
-	trace           Tracer
-	queryObserver   QueryObserver
-	batchObserver   BatchObserver
-	connectObserver ConnectObserver
-	frameObserver   FrameHeaderObserver
-	streamObserver  StreamObserver
-	initErr         error
-	hostSource      *ringDescriber
-	// event handlers
-	nodeEvents          *eventDebouncer
-	cancel              context.CancelFunc
-	pool                *policyConnPool
-	ringRefresher       *debounce.RefreshDebouncer
-	readyCh             chan struct{}
-	executor            *queryExecutor
-	stmtsLRU            *preparedLRU
-	schemaEvents        *eventDebouncer
-	metadataDescriber   *metadataDescriber
-	connCfg             *ConnConfig
-	routingKeyInfoCache routingKeyInfoLRU
-	cfg                 ClusterConfig
-	pageSize            int
-	prefetch            float64
-	// sessionStateMu protects isClosed and isInitialized.
-	mu sync.RWMutex
-	// sessionStateMu protects isClosed and isInitialized.
-	sessionStateMu sync.RWMutex
-	cons           Consistency
-	// isClosed is true once Session.Close is finished.
-	isClosed bool
-	// isClosing bool is true once Session.Close is started.
-	isClosing bool
-	// isInitialized is true once Session.init succeeds.
-	// you can use initialized() to read the value.
-	isInitialized             bool
+	warningHandler            WarningHandler
+	queryObserver             QueryObserver
+	control                   controlConnection
+	ctx                       context.Context
+	logger                    StdLogger
+	trace                     Tracer
+	policy                    HostSelectionPolicy
+	batchObserver             BatchObserver
+	connectObserver           ConnectObserver
+	frameObserver             FrameHeaderObserver
+	streamObserver            StreamObserver
+	initErr                   error
+	nodeEvents                *eventDebouncer
+	stmtsLRU                  *preparedLRU
+	hostSource                *ringDescriber
+	pool                      *policyConnPool
+	ringRefresher             *debounce.RefreshDebouncer
+	readyCh                   chan struct{}
+	executor                  *queryExecutor
+	cancel                    context.CancelFunc
+	schemaEvents              *eventDebouncer
+	metadataDescriber         *metadataDescriber
+	eventBus                  *eventbus.EventBus[events.Event]
+	connCfg                   *ConnConfig
+	clientRoutesHandler       *ClientRoutesHandler
+	routingKeyInfoCache       routingKeyInfoLRU
+	addressTranslator         AddressTranslator
+	cfg                       ClusterConfig
+	prefetch                  float64
+	pageSize                  int
+	mu                        sync.RWMutex
+	sessionStateMu            sync.RWMutex
+	cons                      Consistency
+	isClosing                 bool
 	hasAggregatesAndFunctions bool
 	useSystemSchema           bool
 	tabletsRoutingV1          bool
+	isInitialized             bool
+	isClosed                  bool
 }
 
 var queryPool = &sync.Pool{
@@ -103,23 +102,21 @@ var queryPool = &sync.Pool{
 	},
 }
 
-func addrsToHosts(resolver DNSResolver, translateAddressPort func(addr net.IP, port int) (net.IP, int), addrs []string, defaultPort int, logger StdLogger) ([]*HostInfo, error) {
+func resolveInitialEndpoints(resolver DNSResolver, addrs []string, defaultPort int, logger StdLogger) ([]*HostInfo, error) {
 	var hosts []*HostInfo
+	var errs []error
 	for _, hostaddr := range addrs {
-		resolvedHosts, err := hostInfo(resolver, translateAddressPort, hostaddr, defaultPort)
+		resolvedHosts, err := resolveInitialEndpoint(resolver, hostaddr, defaultPort)
 		if err != nil {
-			// Try other hosts if unable to resolve DNS name
-			if _, ok := err.(*net.DNSError); ok {
-				logger.Printf("gocql: dns error: %v\n", err)
-				continue
-			}
-			return nil, err
+			err = fmt.Errorf("failed to resolve endpoint %q: %w", hostaddr, err)
+			errs = append(errs, err)
+			logger.Println(err.Error())
+			continue
 		}
-
 		hosts = append(hosts, resolvedHosts...)
 	}
 	if len(hosts) == 0 {
-		return nil, errors.New("failed to resolve any of the provided hostnames")
+		return nil, fmt.Errorf("failed to resolve any of the provided hostnames: %w", errors.Join(errs...))
 	}
 	return hosts, nil
 }
@@ -133,16 +130,22 @@ func newSessionCommon(cfg ClusterConfig) (*Session, error) {
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	s := &Session{
-		cons:            cfg.Consistency,
-		prefetch:        0.25,
-		cfg:             cfg,
-		pageSize:        cfg.PageSize,
-		stmtsLRU:        &preparedLRU{lru: lru.New(cfg.MaxPreparedStmts)},
-		connectObserver: cfg.ConnectObserver,
-		ctx:             ctx,
-		cancel:          cancel,
-		logger:          cfg.logger(),
-		readyCh:         make(chan struct{}, 1),
+		cons:              cfg.Consistency,
+		prefetch:          0.25,
+		cfg:               cfg,
+		pageSize:          cfg.PageSize,
+		stmtsLRU:          &preparedLRU{lru: lru.New(cfg.MaxPreparedStmts)},
+		connectObserver:   cfg.ConnectObserver,
+		ctx:               ctx,
+		cancel:            cancel,
+		logger:            cfg.logger(),
+		addressTranslator: cfg.AddressTranslator,
+		readyCh:           make(chan struct{}, 1),
+	}
+
+	if cfg.ClientRoutesConfig != nil {
+		s.clientRoutesHandler = NewClientRoutesAddressTranslator(*cfg.ClientRoutesConfig, s.cfg.DNSResolver, s.cfg.SslOpts != nil, s.logger)
+		s.addressTranslator = s.clientRoutesHandler
 	}
 
 	// Close created resources on error otherwise they'll leak
@@ -154,6 +157,11 @@ func newSessionCommon(cfg ClusterConfig) (*Session, error) {
 	}()
 
 	s.metadataDescriber = newMetadataDescriber(s)
+
+	s.eventBus = eventbus.New[events.Event](cfg.EventBusConfig, cfg.Logger)
+	if err = s.eventBus.Start(); err != nil {
+		return nil, fmt.Errorf("gocql: unable to create session: %v", err)
+	}
 
 	s.nodeEvents = newEventDebouncer("NodeEvents", s.handleNodeEvent, s.logger)
 	s.schemaEvents = newEventDebouncer("SchemaEvents", s.handleSchemaEvent, s.logger)
@@ -241,12 +249,22 @@ func NewSessionNonBlocking(cfg ClusterConfig) (*Session, error) {
 	return s, nil
 }
 
+// SubscribeToEvents adds a new subscriber to the event bus.
+// name: subscriber name
+// queueSize: buffer size for the subscriber events, when buffer is overflowed events are dropped
+// filter: optional filter function (can be nil to receive all events)
+//
+// Returns a Subscriber instance that provides access to events and a Stop method.
+func (s *Session) SubscribeToEvents(name string, queueSize int, filter eventbus.FilterFunc[events.Event]) *eventbus.Subscriber[events.Event] {
+	return s.eventBus.Subscribe(name, queueSize, filter)
+}
+
 func (s *Session) init() error {
 	if s.cfg.disableInit {
 		return nil
 	}
 
-	hosts, err := addrsToHosts(s.cfg.DNSResolver, s.cfg.translateAddressPort, s.cfg.Hosts, s.cfg.Port, s.logger)
+	hosts, err := resolveInitialEndpoints(s.cfg.DNSResolver, s.cfg.Hosts, s.cfg.Port, s.logger)
 	if err != nil {
 		return err
 	}
@@ -265,8 +283,8 @@ func (s *Session) init() error {
 				var proto int
 				proto, err = s.control.discoverProtocol(hosts)
 				if err != nil {
-					err = fmt.Errorf("unable to discover protocol version: %v\n", err)
-					if gocqlDebug {
+					err = fmt.Errorf("unable to discover protocol version: %w\n", err)
+					if debug.Enabled {
 						s.logger.Println(err.Error())
 					}
 					continue
@@ -280,8 +298,8 @@ func (s *Session) init() error {
 			}
 
 			if err = s.control.connect(hosts); err != nil {
-				err = fmt.Errorf("unable to create control connection: %v\n", err)
-				if gocqlDebug {
+				err = fmt.Errorf("unable to create control connection: %w\n", err)
+				if debug.Enabled {
 					s.logger.Println(err.Error())
 				}
 				continue
@@ -289,7 +307,7 @@ func (s *Session) init() error {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("unable to connect to the cluster, last error: %v", err.Error())
+			return fmt.Errorf("unable to connect to the cluster, last error: %w", err)
 		}
 
 		conn := s.control.getConn().conn.(*Conn)
@@ -298,6 +316,12 @@ func (s *Session) init() error {
 		conn.mu.Unlock()
 
 		s.hostSource.setControlConn(s.control)
+
+		if s.clientRoutesHandler != nil {
+			if err = s.clientRoutesHandler.Initialize(s); err != nil {
+				return fmt.Errorf("unable to initialize client routes handler: %w", err)
+			}
+		}
 
 		if !s.cfg.DisableInitialHostLookup {
 			var newHosts []*HostInfo
@@ -319,20 +343,17 @@ func (s *Session) init() error {
 		newer, _ := checkSystemSchema(s.control)
 		s.useSystemSchema = newer
 		defer conn.finalizeConnection()
+	} else {
+		// For testing purposes we populate host ids
+		for _, host := range hosts {
+			if len(host.hostId) == 0 {
+				host.hostId = MustRandomUUID().String()
+			}
+		}
 	}
 
 	if partitioner != "" {
 		s.policy.SetPartitioner(partitioner)
-	}
-
-	for _, host := range hosts {
-		// In case when host lookup is disabled and when we are in unit tests,
-		// host are not discovered, and we are missing host ID information used
-		// by internal logic.
-		// Associate random UUIDs here with all hosts missing this information.
-		if len(host.HostID()) == 0 {
-			host.SetHostID(MustRandomUUID().String())
-		}
 	}
 
 	hostMap := make(map[string]*HostInfo, len(hosts))
@@ -460,7 +481,7 @@ func (s *Session) reconnectDownedHosts(intv time.Duration) {
 			hosts := s.hostSource.getHostsList()
 
 			// Print session.hostSource for debug.
-			if gocqlDebug {
+			if debug.Enabled {
 				buf := bytes.NewBufferString("Session.hostSource:")
 				for _, h := range hosts {
 					buf.WriteString("[" + h.ConnectAddress().String() + ":" + h.State().String() + "]")
@@ -591,12 +612,20 @@ func (s *Session) Close() {
 		s.schemaEvents.stop()
 	}
 
+	if s.eventBus != nil {
+		_ = s.eventBus.Stop()
+	}
+
 	if s.ringRefresher != nil {
 		s.ringRefresher.Stop()
 	}
 
 	if s.cancel != nil {
 		s.cancel()
+	}
+
+	if s.clientRoutesHandler != nil {
+		s.clientRoutesHandler.Stop()
 	}
 
 	s.sessionStateMu.Lock()
@@ -952,6 +981,38 @@ func (s *Session) MapExecuteBatchCAS(batch *Batch, dest map[string]interface{}) 
 	// if MapScan failed. Although Close just returns err, using Close
 	// here might be confusing as we are not actually closing the iter
 	return applied, iter, iter.err
+}
+
+// translateAddressPort is a helper method that will use the given AddressTranslator
+// if defined, to translate the given address and port into a possibly new address
+// and port, If no AddressTranslator or if an error occurs, the given address and
+// port will be returned.
+func translateAddressPort(addressTranslator AddressTranslator, host *HostInfo, addr AddressPort, logger StdLogger) (AddressPort, error) {
+	if addressTranslator == nil || !addr.IsValid() {
+		return addr, nil
+	}
+	translatorV2, ok := addressTranslator.(AddressTranslatorV2)
+	if !ok {
+		newAddr, newPort := addressTranslator.Translate(addr.Address, int(addr.Port))
+		if debug.Enabled {
+			logger.Printf("gocql: translated address %q to '%v:%d'", addr, newAddr, newPort)
+		}
+		return AddressPort{
+			Address: newAddr,
+			Port:    uint16(newPort),
+		}, nil
+	}
+	newAddr, err := translatorV2.TranslateHost(host, addr)
+	if err != nil {
+		if debug.Enabled {
+			logger.Printf("gocql: failed to translate address %q: %s", addr, err.Error())
+		}
+		return addr, err
+	}
+	if debug.Enabled {
+		logger.Printf("gocql: translated address %q to %q", addr, newAddr)
+	}
+	return newAddr, nil
 }
 
 type hostMetrics struct {
@@ -2423,6 +2484,47 @@ type inflightCachedEntry struct {
 // GetHosts return a list of hosts in the ring the driver knows of.
 func (s *Session) GetHosts() []*HostInfo {
 	return s.hostSource.getHostsList()
+}
+
+type HostInformation interface {
+	Peer() net.IP
+	ConnectAddress() net.IP
+	UntranslatedConnectAddress() net.IP
+	BroadcastAddress() net.IP
+	ListenAddress() net.IP
+	RPCAddress() net.IP
+	PreferredIP() net.IP
+	DataCenter() string
+	Rack() string
+	HostID() string
+	WorkLoad() string
+	Partitioner() string
+	ClusterName() string
+	Tokens() []string
+	Port() int
+	IsUp() bool
+	ScyllaShardAwarePort() uint16
+	ScyllaShardAwarePortTLS() uint16
+	ScyllaShardCount() int
+}
+
+type HostPoolInfo interface {
+	GetConnectionCount() int
+	GetExcessConnectionCount() int
+	GetShardCount() int
+	String() string
+	InFlight() int
+	Host() HostInformation
+	IsClosed() bool
+}
+
+func (s *Session) GetHostPoolByID(hostID string) HostPoolInfo {
+	hostPool, _ := s.pool.getPoolByHostID(hostID)
+	return hostPool
+}
+
+func (s *Session) IterateHostPools(iter func(info HostPoolInfo) bool) {
+	s.pool.iteratePool(iter)
 }
 
 type ObservedQuery struct {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/gocql/gocql"
-	"github.com/scylladb/gocqlx/v2"
-	"github.com/scylladb/gocqlx/v2/qb"
+	"github.com/scylladb/gocqlx/v3"
+	"github.com/scylladb/gocqlx/v3/qb"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 

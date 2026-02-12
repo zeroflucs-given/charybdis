@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/gocql/gocql"
-	"github.com/scylladb/gocqlx/v2"
+	"github.com/scylladb/gocqlx/v3"
 
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/charybdis/utils"

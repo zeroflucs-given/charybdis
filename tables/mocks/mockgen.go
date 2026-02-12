@@ -13,8 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gocqlx "github.com/scylladb/gocqlx/v2"
-	qb "github.com/scylladb/gocqlx/v2/qb"
+	gocqlx "github.com/scylladb/gocqlx/v3"
+	qb "github.com/scylladb/gocqlx/v3/qb"
 	metadata "github.com/zeroflucs-given/charybdis/metadata"
 	tables "github.com/zeroflucs-given/charybdis/tables"
 	gomock "go.uber.org/mock/gomock"

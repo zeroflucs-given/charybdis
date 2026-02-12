@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/gocql/gocql"
-	"github.com/scylladb/gocqlx/v2"
-	"github.com/scylladb/gocqlx/v2/qb"
+	"github.com/scylladb/gocqlx/v3"
+	"github.com/scylladb/gocqlx/v3/qb"
 )
 
 // GetByPartitionKey gets the first record from a partition. If there are multiple records, the

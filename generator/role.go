@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/scylladb/gocqlx/v2"
+	"github.com/scylladb/gocqlx/v3"
 )
 
 func CreateRole(h gocqlx.Session, username string, options ...RoleOption) error {

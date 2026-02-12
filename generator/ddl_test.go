@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/gocql/gocql"
-	"github.com/scylladb/gocqlx/v2"
+	"github.com/scylladb/gocqlx/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

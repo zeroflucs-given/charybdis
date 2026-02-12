@@ -3,7 +3,7 @@ package tables
 import (
 	"time"
 
-	"github.com/scylladb/gocqlx/v2/qb"
+	"github.com/scylladb/gocqlx/v3/qb"
 )
 
 // updateOption is our internal type that implements the core of the updateOption

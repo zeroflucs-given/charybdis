@@ -4,13 +4,13 @@ go 1.25.5
 
 tool go.uber.org/mock/mockgen
 
-replace github.com/gocql/gocql => github.com/scylladb/gocql v1.16.1
+replace github.com/gocql/gocql => github.com/scylladb/gocql v1.17.1
 
 require (
 	github.com/gocql/gocql v1.7.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/scylladb/go-reflectx v1.0.1
-	github.com/scylladb/gocqlx/v2 v2.8.0
+	github.com/scylladb/gocqlx/v3 v3.0.4
 	github.com/stretchr/testify v1.11.1
 	github.com/zeroflucs-given/generics v0.0.0-20260129235756-dd843c240aba
 	go.opentelemetry.io/otel v1.40.0
