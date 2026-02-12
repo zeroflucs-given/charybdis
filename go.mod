@@ -7,7 +7,7 @@ tool go.uber.org/mock/mockgen
 replace github.com/gocql/gocql => github.com/scylladb/gocql v1.16.1
 
 require (
-	github.com/gocql/gocql v1.6.0
+	github.com/gocql/gocql v1.7.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/scylladb/gocqlx/v2 v2.8.0

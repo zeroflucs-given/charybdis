@@ -63,3 +63,13 @@ func WithUpdateTTL(ttl time.Duration) UpdateOption {
 		},
 	}
 }
+
+// WithUpdateExists sets IF EXISTS on the query to ensure the row being updated exists
+func WithUpdateExists() UpdateOption {
+	return &updateOption{
+		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {
+			return builder.Existing()
+		},
+		isOptPrecondition: true,
+	}
+}

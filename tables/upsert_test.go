@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"github.com/zeroflucs-given/charybdis/tables"
 )
@@ -16,7 +17,9 @@ func TestUpsertRecords(t *testing.T) {
 	manager, err := tables.NewTableManager[Order](ctx,
 		tables.WithCluster(testClusterConfig),
 		tables.WithKeyspace(TestKeyspace),
-		tables.WithTableSpecification(OrdersTableSpec))
+		tables.WithTableSpecification(OrdersTableSpec),
+		tables.WithLogger(zaptest.NewLogger(t)),
+	)
 	require.NoError(t, err, "Should not error starting up")
 
 	// Arrange
@@ -32,17 +35,17 @@ func TestUpsertRecords(t *testing.T) {
 		OrderID:         "upsert-test-1",
 		ShippingAddress: testAddress(1, "Upsert Street", "Somerville"),
 	}
-	errUpdate := manager.Upsert(ctx, updated)
 
-	// Assert
+	errUpdate := manager.Upsert(ctx, updated, tables.WithUpsertExists())
 	require.NoError(t, errUpdate, "No error updating")
+
 	fetched, errGet := manager.GetByPartitionKey(ctx, "upsert-test-1")
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get object back")
 	require.Equal(t, testAddress(1, "Upsert Street", "Somerville"), fetched.ShippingAddress, "Change should have persisted")
 }
 
-// TestUpsertRecordNotExist checks upserts dont fail when a record does not exist
+// TestUpsertRecordNotExist checks upserts don't fail when a record does not exist
 func TestUpsertRecordNotExist(t *testing.T) {
 	// Test globals
 	ctx := context.Background()

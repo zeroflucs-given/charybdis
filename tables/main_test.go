@@ -44,8 +44,8 @@ var testTableDeclarations = []string{
 	"DROP KEYSPACE IF EXISTS charybdis_tests",
 	"CREATE KEYSPACE charybdis_tests WITH replication={'class': 'SimpleStrategy', 'replication_factor': 1}",
 	"CREATE TYPE charybdis_tests.address (number varchar, street text, city varchar)",
-	"CREATE TABLE charybdis_tests.orders (order_id varchar, shipping_address address, PRIMARY KEY(order_id))",
-	"CREATE TABLE charybdis_tests.order_items (order_id varchar, item_id varchar, quantity int, PRIMARY KEY((order_id), item_id))",
+	"create table charybdis_tests.orders (order_id varchar, shipping_address address, primary key(order_id))",
+	"create table charybdis_tests.order_items (order_id varchar, item_id varchar, quantity int, primary key((order_id), item_id))",
 	"CREATE INDEX order_item_lookup ON charybdis_tests.order_items (item_id)",
 	"CREATE MATERIALIZED VIEW charybdis_tests.item_orders AS SELECT * FROM charybdis_tests.order_items WHERE order_id IS NOT NULL AND item_id IS NOT NULL AND (quantity > 0) PRIMARY KEY((item_id), order_id, quantity) WITH CLUSTERING ORDER BY (order_id ASC)",
 }

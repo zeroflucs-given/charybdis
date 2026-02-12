@@ -77,3 +77,13 @@ func WithConditionalUpsert(cmp qb.Cmp, payload map[string]any) UpsertOption {
 		isOptPrecondition: true,
 	}
 }
+
+// WithUpsertExists sets IF EXISTS on the query to ensure the row being updated exists
+func WithUpsertExists() UpsertOption {
+	return &upsertOption{
+		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {
+			return builder.Existing()
+		},
+		isOptPrecondition: true,
+	}
+}

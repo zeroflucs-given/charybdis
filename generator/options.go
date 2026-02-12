@@ -272,9 +272,9 @@ func DescribeTableMetadata(sess gocqlx.Session, keyspace string, tableName strin
 	}
 
 	typeMetadata := make(map[string]*gocql.TypeMetadata)
-	//for k, v := range keyspaceMetadata.Types {
+	// for k, v := range keyspaceMetadata.Types {
 	//
-	//}
+	// }
 
 	return &tableMetadata{
 		Table:   table,

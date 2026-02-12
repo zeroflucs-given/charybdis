@@ -48,15 +48,15 @@ func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, o
 		return errPre
 	}
 
-	// Build our query
-	query := qb.Update(t.qualifiedTableName).
+	// Build our builder
+	builder := qb.Update(t.qualifiedTableName).
 		Set(t.nonKeyColumns...).
 		Where(t.allKeyPredicates...)
 
 	additionalVals := map[string]any{}
 
 	for _, opt := range opts {
-		query = opt.applyToUpdateBuilder(query)
+		builder = opt.applyToUpdateBuilder(builder)
 		for k, v := range opt.getMapData() {
 			additionalVals[k] = v
 		}
@@ -66,12 +66,15 @@ func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, o
 	retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
 	defer cancel()
 
-	stmt, params := query.ToCql()
-	for {
-		err := t.Session.ContextQuery(retryCtx, stmt, params).
-			BindStructMap(instance, additionalVals).
-			ExecRelease()
+	query := builder.QueryContext(retryCtx, t.Session).
+		BindStructMap(instance, additionalVals)
 
+	defer query.Release()
+	queryString := query.String()
+	t.Logger.Debug("upsert by primary key", zap.String("query", queryString))
+
+	for {
+		err := query.Exec()
 		if err == nil {
 			break
 		}

@@ -103,7 +103,7 @@ func TestDeleteUsingOptions(t *testing.T) {
 	errInsert := manager.InsertBulk(ctx, toInsert, -1)
 	require.NoError(t, errInsert, "Should not error inserting test data")
 
-	errDelete := manager.DeleteUsingOptions(ctx, tables.WithDeletionKey("order_id", "del-opt-order-02"))
+	errDelete := manager.DeleteUsingOptions(ctx, tables.WithDeletionKey("order_id", "del-opt-order-02"), tables.WithDeletionKey("item_id", "del-opt-item-03"), tables.WithDeleteIfExists())
 	require.NoError(t, errDelete, "Should not error deleting")
 
 	// Assert
