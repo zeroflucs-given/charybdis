@@ -32,7 +32,6 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 
 		q := t.Table.
 			DeleteBuilder().
-			Existing().
 			QueryContext(retryCtx, t.Session).
 			Consistency(t.writeConsistency).
 			BindStruct(instance)
@@ -90,7 +89,6 @@ func (t *tableManagerImpl[T]) DeleteByPrimaryKey(ctx context.Context, keys ...an
 
 		q := t.Table.
 			DeleteBuilder().
-			Existing().
 			QueryContext(retryCtx, t.Session).
 			Consistency(t.writeConsistency).
 			Bind(keys...)
@@ -128,7 +126,7 @@ func (t *tableManagerImpl[T]) DeleteByPrimaryKey(ctx context.Context, keys ...an
 
 // DeleteUsingOptions removes rows/columns specified with the supplied options
 func (t *tableManagerImpl[T]) DeleteUsingOptions(ctx context.Context, opts ...DeleteOption) error {
-	return doWithTracing(ctx, t.Tracer, t.Name+"/DeleteByPrimaryKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/DeleteUsingOptions", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		var cols []string
 		var predicates []qb.Cmp
 		var bindings []any
