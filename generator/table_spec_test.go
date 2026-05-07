@@ -21,7 +21,7 @@ func TestGenerateTableDDLRequiresSpec(t *testing.T) {
 	require.ErrorIs(t, err, generator.ErrInvalidInput)
 }
 
-// TestGenerateTableDDL checks we we can create the DDL we expect for a table from a few elements
+// TestGenerateTableDDL checks that we can create the DDL we expect for a table from a few elements
 func TestGenerateTableDDL(t *testing.T) {
 	// Arrange
 	colUser := &metadata.ColumnSpecification{

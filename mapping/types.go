@@ -8,7 +8,7 @@ import (
 
 // GetScyllaTypeForGoType determines the type to use in Scylla
 func GetScyllaTypeForGoType(t reflect.Type) (string, error) {
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	switch t {

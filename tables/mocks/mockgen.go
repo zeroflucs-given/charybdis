@@ -851,6 +851,34 @@ func (mr *MockDeleteOptionMockRecorder) columns() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "columns", reflect.TypeOf((*MockDeleteOption)(nil).columns))
 }
 
+// ifConditions mocks base method.
+func (m *MockDeleteOption) ifConditions() []qb.Cmp {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ifConditions")
+	ret0, _ := ret[0].([]qb.Cmp)
+	return ret0
+}
+
+// ifConditions indicates an expected call of ifConditions.
+func (mr *MockDeleteOptionMockRecorder) ifConditions() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ifConditions", reflect.TypeOf((*MockDeleteOption)(nil).ifConditions))
+}
+
+// ifExists mocks base method.
+func (m *MockDeleteOption) ifExists() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ifExists")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ifExists indicates an expected call of ifExists.
+func (mr *MockDeleteOptionMockRecorder) ifExists() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ifExists", reflect.TypeOf((*MockDeleteOption)(nil).ifExists))
+}
+
 // predicates mocks base method.
 func (m *MockDeleteOption) predicates() []qb.Cmp {
 	m.ctrl.T.Helper()

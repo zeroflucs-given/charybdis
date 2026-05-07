@@ -117,8 +117,8 @@ func TestSelectByPartitionKey(t *testing.T) {
 	orders := 500
 	itemsPerOrder := 10
 	toInsert := make([]*OrderItem, 0, orders*itemsPerOrder)
-	for order := 0; order < orders; order++ {
-		for item := 0; item < itemsPerOrder; item++ {
+	for order := range orders {
+		for item := range itemsPerOrder {
 			toInsert = append(toInsert, &OrderItem{
 				OrderID:  fmt.Sprintf("sp-order-%d", order),
 				ItemID:   fmt.Sprintf("sp-item-%d", item),
@@ -160,8 +160,8 @@ func TestSelectByPrimaryKey(t *testing.T) {
 	orders := 10
 	itemsPerOrder := 10
 	toInsert := make([]*OrderItem, 0, orders*itemsPerOrder)
-	for order := 0; order < orders; order++ {
-		for item := 0; item < itemsPerOrder; item++ {
+	for order := range orders {
+		for item := range itemsPerOrder {
 			toInsert = append(toInsert, &OrderItem{
 				OrderID:  fmt.Sprintf("sprim-order-%d", order),
 				ItemID:   fmt.Sprintf("sprim-item-%d", item),
@@ -208,8 +208,8 @@ func TestSelectByIndexedColumn(t *testing.T) {
 	orders := 500
 	itemsPerOrder := 10
 	toInsert := make([]*OrderItem, 0, orders*itemsPerOrder)
-	for order := 0; order < orders; order++ {
-		for item := 0; item < itemsPerOrder; item++ {
+	for order := range orders {
+		for item := range itemsPerOrder {
 			toInsert = append(toInsert, &OrderItem{
 				OrderID:  fmt.Sprintf("ix-order-%d", order),
 				ItemID:   fmt.Sprintf("ix-item-%d", item),

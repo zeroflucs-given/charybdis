@@ -252,12 +252,11 @@ type tableMetadata struct {
 
 // DescribeTableMetadata reads the schema of a table in a given keyspace schema from the database
 func DescribeTableMetadata(sess gocqlx.Session, keyspace string, tableName string) (*tableMetadata, error) {
-
 	keyspaceMetadata, errDef := sess.KeyspaceMetadata(keyspace)
 	if errors.Is(errDef, gocql.ErrKeyspaceDoesNotExist) {
 		return nil, nil
 	} else if errDef != nil {
-		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
+		return nil, fmt.Errorf("fetching keyspace metadata for '%s' for table '%s': %w", keyspace, tableName, errDef)
 	}
 	var table *gocql.TableMetadata
 	if keyspaceMetadata.Tables != nil {
@@ -289,7 +288,7 @@ func DescribeViewMetadata(sess gocqlx.Session, keyspace string, viewName string)
 	if errors.Is(errDef, gocql.ErrKeyspaceDoesNotExist) {
 		return nil, nil
 	} else if errDef != nil {
-		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
+		return nil, fmt.Errorf("fetching view metadata: %w", errDef)
 	}
 	if md.Views != nil {
 		return md.Views[viewName], nil
@@ -304,7 +303,7 @@ func DescribeTypeMetadata(sess gocqlx.Session, keyspace string, typeName string)
 		return nil, nil
 	}
 	if errDef != nil {
-		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
+		return nil, fmt.Errorf("fetching type metadata: %w", errDef)
 	}
 	if md.Types == nil {
 		return nil, nil
@@ -318,7 +317,7 @@ func DescribeKeyspaceMetadata(sess gocqlx.Session, keyspace string) (*gocql.Keys
 	if errors.Is(errDef, gocql.ErrKeyspaceDoesNotExist) {
 		return nil, nil
 	} else if errDef != nil {
-		return nil, fmt.Errorf("error fetching keyspace metadata: %w", errDef)
+		return nil, fmt.Errorf("fetching keyspace metadata for '%s': %w", keyspace, errDef)
 	}
 	return md, nil
 }

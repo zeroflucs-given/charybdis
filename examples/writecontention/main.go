@@ -49,7 +49,7 @@ func main() {
 	grp, gCtx := errgroup.WithContext(ctx)
 	grp.SetLimit(numConcurrent)
 
-	for i := 0; i < numUpdates; i++ {
+	for range numUpdates {
 		grp.Go(
 			func() error {
 				n := rand.Int() % 3
@@ -132,7 +132,7 @@ func createSamples(manager tables.TableManager[Record]) {
 	ctx := context.Background()
 
 	log.Info("Inserting records")
-	for i := 0; i < numRecords; i++ {
+	for i := range numRecords {
 		if (i+1)%1000 == 0 {
 			log.With(zap.Int("progress", i+1)).Info("Insert progress")
 		}

@@ -7,8 +7,9 @@ import (
 
 	"github.com/gocql/gocql"
 
-	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/generics"
+
+	"github.com/zeroflucs-given/charybdis/metadata"
 )
 
 // CreateDDLFromTableSpecification creates the DDL to create and extend a table from its table specification
@@ -109,12 +110,13 @@ func getKeySpec(partitionCols []*metadata.PartitioningColumn, clusteringCols []*
 		keys[i] = item.Column.Name
 	}
 
-	keyString := "(" + strings.Join(keys, ", ") + ")"
+	var keyString strings.Builder
+	keyString.WriteString("(" + strings.Join(keys, ", ") + ")")
 	for _, item := range clusteringCols {
-		keyString += ", " + item.Column.Name
+		keyString.WriteString(", " + item.Column.Name)
 	}
 
-	return keyString
+	return keyString.String()
 }
 
 // getClusteringSuffix gets a WITH CLUSTERING ORDER clause if appropriate

@@ -167,7 +167,7 @@ func CollectSubTypesFromType(parentType reflect.Type) (map[string]reflect.Type, 
 	all := make(map[string]reflect.Type)
 
 	var containerKinds = []reflect.Kind{
-		reflect.Ptr,
+		reflect.Pointer,
 		reflect.Array,
 		reflect.Map,
 		reflect.Slice,

@@ -52,7 +52,7 @@ func TestInsertRecordBulk(t *testing.T) {
 
 	// Arrange
 	orders := make([]*Order, 5)
-	for i := 0; i < len(orders); i++ {
+	for i := range orders {
 		orders[i] = &Order{
 			OrderID:         fmt.Sprintf("bulk-order-%d", i),
 			ShippingAddress: testAddress(i, "Bulk Street", "Somerville"),

@@ -19,8 +19,7 @@ type ProjectionManager[T any] interface {
 }
 
 // Projection is our type that describes the API of a single project.
-type Projection[T any] interface {
-}
+type Projection[T any] any
 
 // PrimaryKeyExtractor extracts primary key fields from the input instance
 type PrimaryKeyExtractor func(instance any) ([]any, error)

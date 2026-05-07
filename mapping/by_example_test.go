@@ -27,9 +27,7 @@ func TestCollectSubTypesFromType(t *testing.T) {
 		D []*Six `cql:"d" cqltype:"notsix"`
 	}
 
-	var eg One
-
-	typ := reflect.TypeOf(eg)
+	typ := reflect.TypeFor[One]()
 	got, err := CollectSubTypesFromType(typ)
 	require.NoError(t, err)
 

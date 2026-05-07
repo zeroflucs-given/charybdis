@@ -3,6 +3,7 @@ package tables
 import (
 	"context"
 	"errors"
+	"maps"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -38,9 +39,7 @@ func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, o
 			havePreconditions = true
 		}
 		query = opt.applyToUpdateBuilder(query)
-		for k, v := range opt.getMapData() {
-			additionalVals[k] = v
-		}
+		maps.Copy(additionalVals, opt.getMapData())
 	}
 
 	// If we have no other preconditions, add an IF EXISTS check

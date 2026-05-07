@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/scylladb/gocqlx/v3/table"
 
@@ -84,13 +85,7 @@ func (v *ViewSpecification) ToCQLX() *table.Table {
 	}
 	for _, c := range v.Table.Columns {
 		// Check this column doesn't already exist in the list
-		found := false
-		for _, a := range allColumns {
-			if a == c {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(allColumns, c)
 		if !found {
 			allColumns = append(allColumns, c)
 		}

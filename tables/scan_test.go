@@ -55,7 +55,7 @@ func TestScanPaged(t *testing.T) {
 
 	// Arrange
 	orders := make([]*Order, 500)
-	for i := 0; i < len(orders); i++ {
+	for i := range orders {
 		orders[i] = &Order{
 			OrderID:         fmt.Sprintf("bulk-scan-%d", i),
 			ShippingAddress: testAddress(i, "Bulk Street", "Somerville"),
@@ -91,7 +91,7 @@ func TestScanSorted(t *testing.T) {
 
 	// Arrange
 	orders := make([]*Order, 10)
-	for i := 0; i < len(orders); i++ {
+	for i := range orders {
 		orders[i] = &Order{
 			OrderID:         fmt.Sprintf("bulk-scan-%02d", i),
 			ShippingAddress: testAddress(i, "Bulk Street", "Somerville"),

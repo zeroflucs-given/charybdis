@@ -1,0 +1,128 @@
+package generator
+
+import (
+	"errors"
+	"fmt"
+	"regexp"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/zeroflucs-given/charybdis/metadata"
+)
+
+func TestCreateDDLForRole(t *testing.T) {
+
+	type OpTest func(got metadata.DDLOperation) error
+
+	ExactMatchOpTest := func(want metadata.DDLOperation) OpTest {
+		return func(got metadata.DDLOperation) error {
+			if want.Description != got.Description || want.Command != got.Command {
+				return errors.New("ddl operation doesn't match the expected value")
+			}
+			return nil
+		}
+	}
+
+	CommandMatchesRegExOpTest := func(pattern string) OpTest {
+		re := regexp.MustCompile(pattern)
+		return func(got metadata.DDLOperation) error {
+			if !re.MatchString(got.Command) {
+				return fmt.Errorf("ddl command %q doesn't match the expected regular expression %q", got.Command, re.String())
+			}
+			return nil
+		}
+	}
+
+	tests := []struct {
+		name     string
+		username string
+		options  []RoleOption
+		want     []OpTest
+		wantErr  error
+	}{
+		{
+			name:     "basic add user",
+			username: "foo",
+			options:  nil,
+			want: []OpTest{
+				ExactMatchOpTest(metadata.DDLOperation{
+					Description: "Create the role \"foo\" if it doesn't already exist",
+					Command:     "CREATE ROLE IF NOT EXISTS foo",
+				}),
+			},
+			wantErr: nil,
+		},
+		{
+			name:     "empty user",
+			username: "",
+			options:  nil,
+			want:     nil,
+			wantErr:  ErrInvalidInput,
+		},
+		{
+			name:     "with a password",
+			username: "bar",
+			options: []RoleOption{
+				WithRolePassword("test-password"),
+			},
+			want: []OpTest{
+				ExactMatchOpTest(metadata.DDLOperation{
+					Description: "Create the role \"bar\" if it doesn't already exist",
+					Command:     "CREATE ROLE IF NOT EXISTS bar",
+				}),
+				CommandMatchesRegExOpTest(`^ALTER ROLE bar WITH HASHED PASSWORD '[^']+'$`),
+			},
+			wantErr: nil,
+		},
+		{
+			name:     "empty password",
+			username: "baz",
+			options: []RoleOption{
+				WithRolePassword(""),
+			},
+			want:    nil,
+			wantErr: ErrInvalidInput,
+		},
+		{
+			name:     "all options",
+			username: "gaz",
+			options: []RoleOption{
+				WithRolePassword("test-password"),
+				WithRoleIsSuperuser(true),
+				WithRoleIsLogin(true),
+			},
+			want: []OpTest{
+				ExactMatchOpTest(metadata.DDLOperation{
+					Description: "Create the role \"gaz\" if it doesn't already exist",
+					Command:     "CREATE ROLE IF NOT EXISTS gaz",
+				}),
+				CommandMatchesRegExOpTest(`^ALTER ROLE gaz WITH HASHED PASSWORD '[^']+'$`),
+				ExactMatchOpTest(metadata.DDLOperation{
+					Description: "Set superuser permissions for \"gaz\"",
+					Command:     "ALTER ROLE gaz WITH SUPERUSER = true",
+				}),
+				ExactMatchOpTest(metadata.DDLOperation{
+					Description: "Set login permissions for \"gaz\"",
+					Command:     "ALTER ROLE gaz WITH LOGIN = true",
+				}),
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := CreateDDLForRole(tt.username, tt.options...)
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.Len(t, got, len(tt.want), "expected the number of commands returned to match the number of tests")
+
+			for idx, testDDL := range tt.want {
+				assert.NoError(t, testDDL(got[idx]))
+			}
+		})
+	}
+}

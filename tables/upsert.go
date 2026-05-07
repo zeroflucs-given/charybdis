@@ -3,6 +3,7 @@ package tables
 import (
 	"context"
 	"errors"
+	"maps"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -57,9 +58,7 @@ func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, o
 
 	for _, opt := range opts {
 		builder = opt.applyToUpdateBuilder(builder)
-		for k, v := range opt.getMapData() {
-			additionalVals[k] = v
-		}
+		maps.Copy(additionalVals, opt.getMapData())
 	}
 
 	st := time.Now()
