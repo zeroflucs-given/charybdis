@@ -1,6 +1,6 @@
 services:
   scylla:
-    image: scylladb/scylla:2025.2.1
+    image: scylladb/scylla:2025.2.5
     command:
       - --api-address
       - 0.0.0.0

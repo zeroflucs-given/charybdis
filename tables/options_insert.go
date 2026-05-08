@@ -26,7 +26,7 @@ func WithNotExists() InsertOption {
 		insertBuilderFn: func(builder *qb.InsertBuilder) *qb.InsertBuilder {
 			return builder.Unique()
 		},
-		isOptPrecondition: false,
+		isOptPrecondition: true,
 	}
 }
 

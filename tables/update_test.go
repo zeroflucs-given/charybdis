@@ -68,7 +68,7 @@ func TestUpdateRecordWithTTL(t *testing.T) {
 		ShippingAddress: testAddress(2, "Update Street", "Somerville"),
 	}
 	errUpdate := manager.Update(ctx, updated, tables.WithTTL(time.Second))
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 1)
 
 	// Assert
 	require.NoError(t, errUpdate, "No error updating")

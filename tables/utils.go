@@ -68,3 +68,18 @@ func returnWithTracing[TResult any](ctx context.Context, tracer trace.Tracer, sp
 
 	return result, nil
 }
+
+type AsStringerFunc func() string
+
+// String implements [fmt.Stringer].
+func (f AsStringerFunc) String() string {
+	if f == nil {
+		return ""
+	}
+	return f()
+}
+
+type Executable interface {
+	Exec() error
+	ExecCAS() (bool, error)
+}

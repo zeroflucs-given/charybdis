@@ -17,7 +17,11 @@ import (
 func TestMain(m *testing.M) {
 	testHosts := []string{"localhost:9042"}
 	testClusterConfig = func() *gocql.ClusterConfig {
-		return gocql.NewCluster(testHosts...)
+		cluster := gocql.NewCluster(testHosts...)
+
+		// cluster.Consistency = gocql.One
+
+		return cluster
 	}
 
 	instance := testClusterConfig()

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"github.com/zeroflucs-given/charybdis/tables"
 )
@@ -72,10 +73,13 @@ func TestInsertRecordBulk(t *testing.T) {
 
 // TestInsertDuplicates checks that a duplicated insert fails with the expected error
 func TestInsertDuplicates(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+
 	// Test globals
 	ctx := context.Background()
 	manager, err := tables.NewTableManager[Order](ctx,
 		tables.WithCluster(testClusterConfig),
+		tables.WithLogger(logger),
 		tables.WithKeyspace(TestKeyspace),
 		tables.WithTableSpecification(OrdersTableSpec))
 	require.NoError(t, err, "Should not error starting up")
@@ -85,7 +89,7 @@ func TestInsertDuplicates(t *testing.T) {
 		OrderID:         "insert-test-dupe",
 		ShippingAddress: testAddress(3, "Some Street", "Somerville"),
 	}
-	errInsert := manager.Insert(ctx, obj)
+	errInsert := manager.Insert(ctx, obj, tables.WithNotExists())
 	require.NoError(t, errInsert, "Should not error inserting")
 
 	// Act
@@ -93,7 +97,7 @@ func TestInsertDuplicates(t *testing.T) {
 		OrderID:         "insert-test-dupe",
 		ShippingAddress: testAddress(3, "Another Street", "Somerville"),
 	}
-	errInsertDupe := manager.Insert(ctx, dupe)
+	errInsertDupe := manager.Insert(ctx, dupe, tables.WithNotExists())
 	require.ErrorIs(t, errInsertDupe, tables.ErrPreconditionFailed, "Should get a precondition failure")
 
 	// Assert
@@ -122,7 +126,7 @@ func TestInsertRecordWithTTL(t *testing.T) {
 	// Act
 	errInsert := manager.Insert(ctx, obj, tables.WithTTL(time.Second))
 	require.NoError(t, errInsert, "Should not error inserting")
-	time.Sleep(time.Second * 2)
+	time.Sleep(1 * time.Second)
 
 	// Assert
 	fetched, errGet := manager.GetByPartitionKey(ctx, "insert-test-tll")
