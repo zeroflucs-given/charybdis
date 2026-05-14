@@ -7,7 +7,6 @@ tool go.uber.org/mock/mockgen
 replace github.com/gocql/gocql => github.com/scylladb/gocql v1.17.3
 
 require (
-	github.com/go-crypt/crypt v0.4.14
 	github.com/gocql/gocql v1.7.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/scylladb/go-reflectx v1.0.1
@@ -24,7 +23,6 @@ require (
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/go-crypt/x v0.4.15 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
