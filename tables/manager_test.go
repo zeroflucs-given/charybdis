@@ -65,9 +65,9 @@ func TestRolesAndGrants(t *testing.T) {
 
 	var err error
 
-	err = gen.CreateRole(ctx, roleName)
+	err = gen.CreateRole(ctx, roleName, generator.WithRoleIsLogin(true))
 	require.NoError(t, err)
 
-	err = gen.UpdateRole(ctx, roleName, generator.WithRolePassword("foo"))
+	err = gen.UpdateRole(ctx, roleName, generator.WithRolePassword("don't be orange"), generator.WithRoleIsLogin(true))
 	require.NoError(t, err)
 }

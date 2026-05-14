@@ -85,6 +85,17 @@ func TestCreateDDLForRole(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name:     "password with single quotes",
+			username: "gir",
+			options: []RoleOption{
+				WithRolePassword("don't"),
+			},
+			want: []OpTest{
+				CommandMatchOpTest("CREATE ROLE IF NOT EXISTS gir"),
+				CommandMatchRegExOpTest(`^ALTER ROLE gir WITH PASSWORD = '.+'$`),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

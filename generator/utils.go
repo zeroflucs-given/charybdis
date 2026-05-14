@@ -52,9 +52,7 @@ func EscapePassword(password string) string {
 	for _, c := range password {
 		switch c {
 		case '\'':
-			b.WriteRune('\\')
-		case '\\':
-			b.WriteRune('\\')
+			b.WriteRune(c)
 		default:
 			// Do nothing special
 		}
