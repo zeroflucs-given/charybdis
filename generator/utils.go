@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 
@@ -67,4 +68,28 @@ func SetOf[T comparable](items ...T) Set[T] {
 func (s hashSet[T]) Has(item T) bool {
 	_, ok := s[item]
 	return ok
+}
+
+func EscapePassword(password string) string {
+	b := &bytes.Buffer{}
+
+	for _, c := range password {
+		switch c {
+		case '\'':
+			b.WriteRune('\\')
+		case '\\':
+			b.WriteRune('\\')
+		default:
+			// Do nothing special
+		}
+		b.WriteRune(c)
+	}
+
+	return b.String()
+}
+
+func Redact(str string) string {
+	re := regexp.MustCompile(`(?i:PASSWORD)\s*=\s*'.*'`)
+	str = re.ReplaceAllString(str, "PASSWORD = '<reacted>'")
+	return str
 }

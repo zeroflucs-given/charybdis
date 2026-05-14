@@ -20,6 +20,10 @@ func TestMain(m *testing.M) {
 	testClusterConfig = func() *gocql.ClusterConfig {
 		cluster := gocql.NewCluster(testHosts...)
 		cluster.Consistency = gocql.One
+		cluster.Authenticator = gocql.PasswordAuthenticator{
+			Username: "cassandra",
+			Password: "cassandra",
+		}
 		return cluster
 	}
 

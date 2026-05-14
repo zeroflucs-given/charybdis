@@ -3,9 +3,12 @@ package tables_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
+	"github.com/zeroflucs-given/charybdis/generator"
 	"github.com/zeroflucs-given/charybdis/tables"
 )
 
@@ -42,4 +45,29 @@ func TestTableAndViewManager(t *testing.T) {
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get object back")
 	require.Equal(t, 1337, fetched.Quantity, "Should have non-key fields set")
+}
+
+func TestRolesAndGrants(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var (
+		roleName = "testing_role_create"
+	)
+
+	cluster := testClusterConfig()
+	logger := zaptest.NewLogger(t)
+
+	session, errSession := cluster.CreateSession()
+	require.NoError(t, errSession)
+
+	gen := generator.NewDefinitionGenerator(logger, session)
+
+	var err error
+
+	err = gen.CreateRole(ctx, roleName)
+	require.NoError(t, err)
+
+	err = gen.UpdateRole(ctx, roleName, generator.WithRolePassword("foo"))
+	require.NoError(t, err)
 }

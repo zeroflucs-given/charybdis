@@ -47,7 +47,7 @@ func TestCreateDDLForRole(t *testing.T) {
 					Description: "Create the role \"bar\" if it doesn't already exist",
 					Command:     "CREATE ROLE IF NOT EXISTS bar",
 				}),
-				CommandMatchRegExOpTest(`^ALTER ROLE bar WITH HASHED PASSWORD '[^']+'$`),
+				CommandMatchRegExOpTest(`^ALTER ROLE bar WITH PASSWORD = '.+'$`),
 			},
 			wantErr: nil,
 		},
@@ -73,7 +73,7 @@ func TestCreateDDLForRole(t *testing.T) {
 					Description: "Create the role \"gaz\" if it doesn't already exist",
 					Command:     "CREATE ROLE IF NOT EXISTS gaz",
 				}),
-				CommandMatchRegExOpTest(`^ALTER ROLE gaz WITH HASHED PASSWORD '[^']+'$`),
+				CommandMatchRegExOpTest(`^ALTER ROLE gaz WITH PASSWORD = '.+'$`),
 				ExactMatchOpTest(metadata.DDLOperation{
 					Description: "Set superuser permissions for \"gaz\"",
 					Command:     "ALTER ROLE gaz WITH SUPERUSER = true",
@@ -94,10 +94,11 @@ func TestCreateDDLForRole(t *testing.T) {
 				return
 			}
 			require.Len(t, got, len(tt.want), "expected the number of commands returned to match the number of tests")
-
 			for idx, testDDL := range tt.want {
 				assert.NoError(t, testDDL(got[idx]))
 			}
+
+			t.Logf("statements: %v", got)
 		})
 	}
 }

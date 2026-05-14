@@ -222,7 +222,7 @@ func WithGlobalNetworkAwareKeyspaceManagement(log *zap.Logger, cluster utils.Clu
 func installDLL(ctx context.Context, logger *zap.Logger, sess gocqlx.Session, statements []metadata.DDLOperation) error {
 outer:
 	for _, statement := range statements {
-		logger.With(zap.String("query", statement.Command)).Info(statement.Description)
+		logger.With(zap.String("query", Redact(statement.Command))).Info(statement.Description)
 		errRun := sess.ContextQuery(ctx, statement.Command, nil).ExecRelease()
 
 		// Check if there's an error, and ensure its one that we're allowed to see.

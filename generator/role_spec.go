@@ -41,17 +41,12 @@ func CreateDDLForRole(rolename string, options ...RoleOption) ([]metadata.DDLOpe
 
 	if opts.password != nil {
 		if *opts.password == "" {
-			return nil, fmt.Errorf("password is cannot be blank: %w", ErrInvalidInput)
-		}
-
-		hash, errHash := HashPassword(*opts.password)
-		if errHash != nil {
-			return nil, fmt.Errorf("hashing password (len=%d) for user '%s': %w", len(*opts.password), rolename, errHash)
+			return nil, fmt.Errorf("password cannot be blank: %w", ErrInvalidInput)
 		}
 
 		commands = append(commands, metadata.DDLOperation{
 			Description: fmt.Sprintf("Set the password for %q as provided", rolename),
-			Command:     fmt.Sprintf("ALTER ROLE %s WITH HASHED PASSWORD '%s'", rolename, hash),
+			Command:     fmt.Sprintf("ALTER ROLE %s WITH PASSWORD = '%s'", rolename, EscapePassword(*opts.password)),
 		})
 	}
 

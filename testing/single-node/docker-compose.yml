@@ -14,10 +14,12 @@ services:
       - "1"
       - --smp
       - "1"
+      - --authenticator
+      - PasswordAuthenticator
 #      - --alternator-port
 #      - "8000"
 #      - --alternator-write-isolation
 #      - lwt
     ports:
       - "9042:9042" # CQL
-      - "20000:10000"
+      - "10000:10000"
