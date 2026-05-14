@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/zeroflucs-given/charybdis/metadata"
+
 	"github.com/zeroflucs-given/generics"
 )
 

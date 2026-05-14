@@ -1,6 +1,6 @@
 services:
   scylla1:
-    image: scylladb/scylla:5.4
+    image: scylladb/scylla:2025.2.5
     container_name: scylla1
     hostname: scylla1
     command:
@@ -13,13 +13,13 @@ services:
       - --developer-mode
       - "1"
       - --smp
-      - "2"
+      - "1"
     ports:
       - "10001:10000"
-      - "9041:9042"
+      - "19142:9042"
 
   scylla2:
-    image: scylladb/scylla:5.4
+    image: scylladb/scylla:2025.2.5
     container_name: scylla2
     hostname: scylla2
     command:
@@ -34,13 +34,13 @@ services:
       - --developer-mode
       - "1"
       - --smp
-      - "2"
+      - "1"
     ports:
       - "10002:10000"
-      - "9042:9042"
+      - "19143:9042"
 
   scylla3:
-    image: scylladb/scylla:5.4
+    image: scylladb/scylla:2025.2.5
     container_name: scylla3
     hostname: scylla3
     command:
@@ -55,10 +55,10 @@ services:
       - --developer-mode
       - "1"
       - --smp
-      - "2"
+      - "1"
     ports:
       - "10003:10000"
-      - "9043:9042"
+      - "19144:9042"
 
 networks:
   default:

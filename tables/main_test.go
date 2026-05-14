@@ -8,6 +8,7 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v3"
 
+	"github.com/zeroflucs-given/charybdis/examples"
 	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/charybdis/utils"
 )
@@ -15,12 +16,10 @@ import (
 // TestMain initializes our testing setup and installs any tables/keyspaces we use for testing.
 // It assumes absolute ownership of the keyspace charybdis_tests.
 func TestMain(m *testing.M) {
-	testHosts := []string{"localhost:9042"}
+	testHosts := examples.TestingHosts
 	testClusterConfig = func() *gocql.ClusterConfig {
 		cluster := gocql.NewCluster(testHosts...)
-
-		// cluster.Consistency = gocql.One
-
+		cluster.Consistency = gocql.One
 		return cluster
 	}
 
@@ -32,8 +31,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	for _, statement := range testTableDeclarations {
-		err := sess.ExecStmt(statement)
-		if err != nil {
+		if err := sess.ExecStmt(statement); err != nil {
 			panic(err)
 		}
 	}

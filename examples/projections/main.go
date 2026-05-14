@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"time"
 
 	"github.com/gocql/gocql"
 	"go.uber.org/zap"
 
+	"github.com/zeroflucs-given/charybdis/examples"
 	"github.com/zeroflucs-given/charybdis/generator"
 	"github.com/zeroflucs-given/charybdis/mapping"
 	"github.com/zeroflucs-given/charybdis/metadata"
@@ -23,22 +23,20 @@ type Record struct {
 }
 
 func main() {
-	hosts := []string{"127.0.0.1:9042"}
-
 	ctx := context.TODO() // Replace with your app contexts
 	cluster := func() *gocql.ClusterConfig {
-		c := gocql.NewCluster(hosts...)
-		c.Timeout = 3600 * time.Second
+		c := gocql.NewCluster(examples.TestingHosts...)
 		return c
 	}
 
 	log, _ := zap.NewDevelopment()
 
 	// Example Part 1 - Creating a table manager with automatic DDL management
-	manager, err := tables.NewTableManager[Record](ctx,
-		tables.WithCluster(cluster),                                    // Used to create connections
-		tables.WithLogger(log),                                         // Use a custom logger
-		tables.WithKeyspace("examples"),                                // The keyspace the table belongs to
+	manager, err := tables.NewTableManager[Record](
+		ctx,
+		tables.WithCluster(cluster), // Used to create connections
+		tables.WithLogger(log),      // Use a custom logger
+		tables.WithKeyspace("examples_projections"),                    // The keyspace the table belongs to
 		mapping.WithAutomaticTableSpecification[Record]("user_visits"), // Extract metadata from [Record] type
 		generator.WithSimpleKeyspaceManagement(log, cluster, 1),        // Simple keyspace with RF1 (create if needed)
 		generator.WithAutomaticTableManagement(log, cluster),           // Create the table if needed
@@ -54,7 +52,7 @@ func main() {
 	proj, err := projections.NewProjectionManager[Record](ctx,
 		projections.WithCluster(cluster),
 		projections.WithLogger(log),
-		projections.WithKeyspace("examples"),
+		projections.WithKeyspace("examples_projections"),
 		projections.WithBaseTable(manager.GetTableSpec()),
 		projections.WithTrackedNonKeyColumns(
 			"region", "last_name", "first_name",

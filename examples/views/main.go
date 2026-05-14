@@ -6,6 +6,7 @@ import (
 	"github.com/gocql/gocql"
 	"go.uber.org/zap"
 
+	"github.com/zeroflucs-given/charybdis/examples"
 	"github.com/zeroflucs-given/charybdis/generator"
 	"github.com/zeroflucs-given/charybdis/mapping"
 	"github.com/zeroflucs-given/charybdis/tables"
@@ -20,19 +21,18 @@ type Record struct {
 }
 
 func main() {
-	hosts := []string{"127.0.0.1:9042"}
-
 	ctx := context.TODO() // Replace with your app contexts
 	cluster := func() *gocql.ClusterConfig {
-		return gocql.NewCluster(hosts...)
+		return gocql.NewCluster(examples.TestingHosts...)
 	}
 	log, _ := zap.NewDevelopment()
 
 	// Example Part 1 - Creating a table manager with automatic DDL management
-	tableManager, err := tables.NewTableManager[Record](ctx,
-		tables.WithCluster(cluster),                                    // Used to create connections
-		tables.WithLogger(log),                                         // Use a custom logger
-		tables.WithKeyspace("examples"),                                // The keyspace the table belongs to
+	tableManager, err := tables.NewTableManager[Record](
+		ctx,
+		tables.WithCluster(cluster),           // Used to create connections
+		tables.WithLogger(log),                // Use a custom logger
+		tables.WithKeyspace("examples_views"), // The keyspace the table belongs to
 		mapping.WithAutomaticTableSpecification[Record]("user_visits"), // Extract metadata from [Record] type
 		generator.WithSimpleKeyspaceManagement(log, cluster, 1),        // Simple keyspace with RF1 (create if needed)
 		generator.WithAutomaticTableManagement(log, cluster),           // Create the table if needed

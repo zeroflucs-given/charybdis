@@ -37,3 +37,34 @@ func HashPassword(password string) (string, error) {
 
 	return digest.Encode(), nil
 }
+
+func ptrTo[T any](n T) *T {
+	res := new(T)
+	*res = n
+	return res
+}
+
+type Set[T comparable] interface {
+	Has(T) bool
+}
+
+type hashSet[T comparable] map[T]struct{}
+
+func SetOf[T comparable](items ...T) Set[T] {
+	if len(items) == 0 {
+		return nil
+	}
+
+	h := make(hashSet[T], len(items))
+
+	for _, item := range items {
+		h[item] = struct{}{}
+	}
+
+	return h
+}
+
+func (s hashSet[T]) Has(item T) bool {
+	_, ok := s[item]
+	return ok
+}

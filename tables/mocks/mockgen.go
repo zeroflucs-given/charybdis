@@ -15,9 +15,10 @@ import (
 
 	gocqlx "github.com/scylladb/gocqlx/v3"
 	qb "github.com/scylladb/gocqlx/v3/qb"
+	gomock "go.uber.org/mock/gomock"
+
 	metadata "github.com/zeroflucs-given/charybdis/metadata"
 	tables "github.com/zeroflucs-given/charybdis/tables"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockTableManager is a mock of TableManager interface.

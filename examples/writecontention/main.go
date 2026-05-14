@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/zeroflucs-given/charybdis/examples"
 	"github.com/zeroflucs-given/charybdis/generator"
 	"github.com/zeroflucs-given/charybdis/mapping"
 	"github.com/zeroflucs-given/charybdis/tables"
@@ -26,8 +27,6 @@ const (
 
 var log *zap.Logger
 
-var hosts = []string{"127.0.0.1:9041", "127.0.0.1:9042", "127.0.0.1:9043"}
-
 type Record struct {
 	ID    int `cql:"id" cqlpartitioning:"1"`
 	Thing int `cql:"thing" cqlclustering:"1"`
@@ -39,9 +38,9 @@ func main() {
 	logCfg.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	log, _ = logCfg.Build()
 
-	prep(hosts)
+	prep(examples.TestingHostsTriple)
 
-	nodes := Map(hosts, newSingleNodeConn)
+	nodes := apply(examples.TestingHostsTriple, newSingleNodeConn)
 
 	log.Info("performing concurrent writes", zap.Int("num", numConcurrent))
 
@@ -66,7 +65,7 @@ func main() {
 
 }
 
-func Map[S ~[]E, E, V any](s S, fn func(E) V) []V {
+func apply[S ~[]E, E, V any](s S, fn func(E) V) []V {
 	var res []V
 	for _, e := range s {
 		res = append(res, fn(e))
@@ -96,9 +95,9 @@ func newManager(hosts ...string) tables.TableManager[Record] {
 		ctx,
 		tables.WithCluster(cluster),
 		tables.WithLogger(log),
-		tables.WithKeyspace("some_keyspace"),
+		tables.WithKeyspace("examples_write_contention"),
 		mapping.WithAutomaticTableSpecification[Record]("some_table"),
-		generator.WithSimpleKeyspaceManagement(log, cluster, 3),
+		generator.WithSimpleKeyspaceManagement(log, cluster, len(hosts)),
 		generator.WithAutomaticTableManagement(log, cluster),
 	)
 	if err != nil {

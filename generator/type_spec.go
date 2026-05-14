@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gocql/gocql"
 
@@ -22,13 +23,17 @@ func CreateDDLFromTypeSpecification(keyspace string, spec *metadata.TypeSpecific
 
 	var commands []metadata.DDLOperation
 
-	// Create the shell of the type if it does not exist
+	// Create the type if it does not exist. - Note "ALTER TYPE ADD COLUMN" has been removed from Cassandra/Scylla
 	if existingMetadata == nil {
-		initialCreate := fmt.Sprintf("CREATE TYPE IF NOT EXISTS %v.%v (%s %s)",
+		var fields []string
+		for _, f := range spec.Fields {
+			fields = append(fields, f.Name+" "+f.CQLType)
+		}
+
+		initialCreate := fmt.Sprintf("CREATE TYPE IF NOT EXISTS %v.%v (%s)",
 			keyspace,
 			spec.Name,
-			spec.Fields[0].Name, // must always be at least one, else Validate above would have failed
-			spec.Fields[0].CQLType,
+			strings.Join(fields, ", "),
 		)
 
 		commands = append(commands, metadata.DDLOperation{
@@ -38,43 +43,5 @@ func CreateDDLFromTypeSpecification(keyspace string, spec *metadata.TypeSpecific
 		})
 	}
 
-	fieldSet := getFieldSet(existingMetadata)
-
-	// Create any missing fields
-	for _, field := range spec.Fields[1:] {
-		if fieldSet.Has(field.Name) {
-			continue
-		}
-		addFieldStmt := fmt.Sprintf("ALTER TYPE %v.%v ADD %s %s", keyspace, spec.Name, field.Name, field.CQLType)
-
-		commands = append(commands, metadata.DDLOperation{
-			Description:  fmt.Sprintf("Extend the type %q with the field %q if needed.", spec.Name, field.Name),
-			Command:      addFieldStmt,
-			IgnoreErrors: []string{MessageColumnExists},
-		})
-	}
-
 	return commands, nil
-}
-
-type setType[E comparable] map[E]struct{}
-
-func (s setType[E]) Has(element E) bool {
-	_, has := s[element]
-	return has
-}
-
-func getFieldSet(m *gocql.TypeMetadata) setType[string] {
-	if m == nil {
-		return nil
-	}
-	return asSet(m.FieldNames)
-}
-
-func asSet[S ~[]E, E comparable](s S) map[E]struct{} {
-	res := make(map[E]struct{})
-	for _, e := range s {
-		res[e] = struct{}{}
-	}
-	return res
 }

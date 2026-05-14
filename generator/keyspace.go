@@ -11,8 +11,9 @@ import (
 	"github.com/scylladb/gocqlx/v3"
 	"go.uber.org/zap"
 
-	"github.com/zeroflucs-given/charybdis/metadata"
 	"github.com/zeroflucs-given/generics"
+
+	"github.com/zeroflucs-given/charybdis/metadata"
 )
 
 type KeyspaceOption func(*KeyspaceOptions)
@@ -87,6 +88,19 @@ func UsingLogger(logger *zap.Logger) KeyspaceOption {
 }
 
 func CreateKeyspace(ctx context.Context, sess gocqlx.Session, keyspace string, options ...KeyspaceOption) error {
+	logger := zap.NewNop()
+	opts := CollectKeyspaceOptions(options)
+	if opts.logger != nil {
+		logger = opts.logger
+	}
+	gen := &DefinitionGenerator{
+		logger:  logger,
+		session: sess,
+	}
+	return gen.CreateKeyspace(ctx, keyspace, options...)
+}
+
+func (g *DefinitionGenerator) CreateKeyspace(ctx context.Context, keyspace string, options ...KeyspaceOption) error {
 	opts := CollectKeyspaceOptions(options)
 
 	if err := IsValidIdentifier(keyspace); err != nil {
@@ -103,10 +117,14 @@ func CreateKeyspace(ctx context.Context, sess gocqlx.Session, keyspace string, o
 	if len(opts.replicationFactors) > 0 {
 		keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("replication = { 'class': '%s', %s }", replicationStrategy, strings.Join(opts.replicationFactors, ", ")))
 	} else {
-		keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("replication = { 'class': '%s', 'replication_factor': %d }", replicationStrategy, opts.replicationFactor))
+		replicationFactor := opts.replicationFactor
+		if replicationFactor == 0 {
+			replicationFactor = 1
+		}
+		keyspaceOptionClauses = append(keyspaceOptionClauses, fmt.Sprintf("replication = { 'class': '%s', 'replication_factor': %d }", replicationStrategy, replicationFactor))
 	}
 
-	version, err := metadata.GetScyllaVersion(ctx, sess)
+	version, err := metadata.GetScyllaVersion(ctx, g.session)
 	if err != nil {
 		return err
 	}
@@ -122,9 +140,37 @@ func CreateKeyspace(ctx context.Context, sess gocqlx.Session, keyspace string, o
 
 	stmt := fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s%s", keyspace, with)
 
-	if opts.logger != nil {
-		opts.logger.With(zap.String("query", stmt), zap.Any("scylla_version", version)).Info("Creating keyspace")
+	g.logger.With(zap.String("query", stmt), zap.Any("scylla_version", version)).Info("Creating keyspace")
+
+	return g.session.ExecStmt(stmt)
+}
+
+func (g *DefinitionGenerator) DropKeyspace(ctx context.Context, keyspace string) error {
+	ddl, errDDL := DropKeyspaceDDL(keyspace)
+	if errDDL != nil {
+		return errDDL
+	}
+	return installDLL(ctx, g.logger, g.session, ddl)
+}
+
+func DropKeyspace(ctx context.Context, sess gocqlx.Session, keyspace string) error {
+	gen := &DefinitionGenerator{
+		logger:  zap.NewNop(),
+		session: sess,
+	}
+	return gen.DropKeyspace(ctx, keyspace)
+}
+
+func DropKeyspaceDDL(keyspace string) ([]metadata.DDLOperation, error) {
+	if err := IsValidIdentifier(keyspace); err != nil {
+		return nil, fmt.Errorf("invalid keyspace name: %w", err)
 	}
 
-	return sess.ExecStmt(stmt)
+	var commands []metadata.DDLOperation
+	commands = append(commands, metadata.DDLOperation{
+		Description: fmt.Sprintf("Drop the keyspace '%s'", keyspace),
+		Command:     fmt.Sprintf("DROP KEYSPACE IF EXISTS %s", keyspace),
+	})
+
+	return commands, nil
 }

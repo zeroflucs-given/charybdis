@@ -4,13 +4,13 @@ github.com/cespare/xxhash/v2
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/go-crypt/crypt v0.4.13
+# github.com/go-crypt/crypt v0.4.14
 ## explicit; go 1.25.0
 github.com/go-crypt/crypt/algorithm
 github.com/go-crypt/crypt/algorithm/shacrypt
 github.com/go-crypt/crypt/internal/encoding
 github.com/go-crypt/crypt/internal/random
-# github.com/go-crypt/x v0.4.14
+# github.com/go-crypt/x v0.4.15
 ## explicit; go 1.25.0
 github.com/go-crypt/x/base64
 github.com/go-crypt/x/crypt

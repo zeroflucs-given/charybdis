@@ -19,5 +19,5 @@ services:
 #      - --alternator-write-isolation
 #      - lwt
     ports:
-      - 9042:9042 # CQL
-      - "10000:10000"
+      - "9042:9042" # CQL
+      - "20000:10000"

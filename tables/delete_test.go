@@ -16,11 +16,13 @@ func TestDeleteRecord(t *testing.T) {
 
 	// Test globals
 	ctx := context.Background()
-	manager, err := tables.NewTableManager[Order](ctx,
+	manager, err := tables.NewTableManager[Order](
+		ctx,
 		tables.WithLogger(logger),
 		tables.WithCluster(testClusterConfig),
 		tables.WithKeyspace(TestKeyspace),
-		tables.WithTableSpecification(OrdersTableSpec))
+		tables.WithTableSpecification(OrdersTableSpec),
+	)
 
 	// Arrange
 	require.NoError(t, err, "Should not error starting up")

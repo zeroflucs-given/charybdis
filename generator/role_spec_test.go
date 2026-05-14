@@ -1,9 +1,6 @@
 package generator
 
 import (
-	"errors"
-	"fmt"
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,28 +10,6 @@ import (
 )
 
 func TestCreateDDLForRole(t *testing.T) {
-
-	type OpTest func(got metadata.DDLOperation) error
-
-	ExactMatchOpTest := func(want metadata.DDLOperation) OpTest {
-		return func(got metadata.DDLOperation) error {
-			if want.Description != got.Description || want.Command != got.Command {
-				return errors.New("ddl operation doesn't match the expected value")
-			}
-			return nil
-		}
-	}
-
-	CommandMatchesRegExOpTest := func(pattern string) OpTest {
-		re := regexp.MustCompile(pattern)
-		return func(got metadata.DDLOperation) error {
-			if !re.MatchString(got.Command) {
-				return fmt.Errorf("ddl command %q doesn't match the expected regular expression %q", got.Command, re.String())
-			}
-			return nil
-		}
-	}
-
 	tests := []struct {
 		name     string
 		username string
@@ -72,7 +47,7 @@ func TestCreateDDLForRole(t *testing.T) {
 					Description: "Create the role \"bar\" if it doesn't already exist",
 					Command:     "CREATE ROLE IF NOT EXISTS bar",
 				}),
-				CommandMatchesRegExOpTest(`^ALTER ROLE bar WITH HASHED PASSWORD '[^']+'$`),
+				CommandMatchRegExOpTest(`^ALTER ROLE bar WITH HASHED PASSWORD '[^']+'$`),
 			},
 			wantErr: nil,
 		},
@@ -98,7 +73,7 @@ func TestCreateDDLForRole(t *testing.T) {
 					Description: "Create the role \"gaz\" if it doesn't already exist",
 					Command:     "CREATE ROLE IF NOT EXISTS gaz",
 				}),
-				CommandMatchesRegExOpTest(`^ALTER ROLE gaz WITH HASHED PASSWORD '[^']+'$`),
+				CommandMatchRegExOpTest(`^ALTER ROLE gaz WITH HASHED PASSWORD '[^']+'$`),
 				ExactMatchOpTest(metadata.DDLOperation{
 					Description: "Set superuser permissions for \"gaz\"",
 					Command:     "ALTER ROLE gaz WITH SUPERUSER = true",

@@ -59,11 +59,7 @@ func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecif
 				continue // this column already exists, we can skip
 			}
 		}
-		addColumnStatement := fmt.Sprintf(`ALTER TABLE %v.%v ADD %v %v`,
-			keyspace,
-			spec.Name,
-			column.Name,
-			column.CQLType)
+		addColumnStatement := fmt.Sprintf(`ALTER TABLE %v.%v ADD %v %v`, keyspace, spec.Name, column.Name, column.CQLType)
 		commands = append(commands, metadata.DDLOperation{
 			Description:  fmt.Sprintf("Extend the table %q with the column %q if needed.", spec.Name, column.Name),
 			Command:      addColumnStatement,

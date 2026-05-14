@@ -31,7 +31,7 @@ func TestCollectSubTypesFromType(t *testing.T) {
 	got, err := CollectSubTypesFromType(typ)
 	require.NoError(t, err)
 
-	t.Logf("Got: %d subtypes\n", len(got))
+	// 	t.Logf("Got: %d subtypes\n", len(got))
 
 	assert.Equal(t, 2, len(got))
 

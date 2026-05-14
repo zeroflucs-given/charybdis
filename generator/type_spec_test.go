@@ -54,20 +54,6 @@ func TestGenerateTypeDDL(t *testing.T) {
 			Description: `Create the table "email_changes" with columns relating to the key.`,
 			Command:     "CREATE TYPE test_keyspace.email_changes (user_id varchar)",
 		},
-		{
-			Description: `Extend the table "email_changes" with the column "email_address" if needed.`,
-			Command:     "ALTER TABLE test_keyspace.email_changes ADD email_address varchar",
-			IgnoreErrors: []string{
-				generator.MessageColumnExists,
-			},
-		},
-		{
-			Description: `Extend the table "email_changes" with the column "email_address" if needed.`,
-			Command:     "ALTER TABLE test_keyspace.email_changes ADD change_time timestamp",
-			IgnoreErrors: []string{
-				generator.MessageColumnExists,
-			},
-		},
 	}
 	require.NoError(t, errDDL, "Should not error generating DDL")
 	require.Len(t, ddl, len(expected))

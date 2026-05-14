@@ -15,7 +15,7 @@ import (
 // the same effect with an Upsert if you use the WithNotExist option.
 func (t *tableManagerImpl[T]) Insert(ctx context.Context, instance *T, opts ...InsertOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/Insert", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
-		return t.insertInternal(ctx, instance, false, opts...)
+		return t.insertInternal(ctx, instance, true, opts...)
 	})
 }
 

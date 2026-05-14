@@ -16,15 +16,11 @@ fi
 go build ./...
 go vet ./...
 
-pushd ./testing
-"$CONTAINER_RUNNER" compose pull
-"$CONTAINER_RUNNER" compose up -d
-popd
-
 echo "Awaiting ScyllaDB: "
 while ! nc -z localhost 9042; do
   echo "."
   sleep 0.1
 done
+
 
 go test -v -cover -covermode=atomic -coverprofile=coverage.out -coverpkg=./...  ./...

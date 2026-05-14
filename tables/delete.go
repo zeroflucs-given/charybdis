@@ -13,6 +13,10 @@ import (
 
 // Delete removes an object by binding against the structure values. Practically, only the keys of the object need be set.
 func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
+	if instance == nil {
+		return nil // nothing to delete
+	}
+
 	return doWithTracing(ctx, t.Tracer, t.Name+"/DeleteByObject", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		// Pre-delete hooks
 		if len(t.preDeleteHooks) > 0 {
@@ -32,6 +36,7 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 
 		q := t.Table.
 			DeleteBuilder().
+			Existing().
 			QueryContext(retryCtx, t.Session).
 			Consistency(t.writeConsistency).
 			BindStruct(instance)
@@ -92,11 +97,11 @@ func (t *tableManagerImpl[T]) deleteInternal(ctx context.Context, opts ...Delete
 	if len(t.preDeleteHooks) > 0 {
 		existing, err := t.GetUsingOptions(ctx, WithPredicates(predicates...), WithBindings(bindings...))
 		if err != nil {
-			return fmt.Errorf("error fetching existing record for pre-delete hooks: %w", err)
+			return fmt.Errorf("fetching existing record for pre-delete hooks: %w", err)
 		}
 		errHooks := t.runPreDeleteHooks(ctx, existing)
 		if errHooks != nil {
-			return fmt.Errorf("error running pre-delete hooks: %w", errHooks)
+			return fmt.Errorf("running pre-delete hooks: %w", errHooks)
 		}
 	}
 
