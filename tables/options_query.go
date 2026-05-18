@@ -128,7 +128,7 @@ func WithCondition(cond qb.Cmp, value any) QueryOption {
 	}
 }
 
-func UsingSelectServiceLevel(name string) QueryOption {
+func UsingServiceLevel(name string) QueryOption {
 	return &queryOption{
 		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
 			return builder.ServiceLevel(name)

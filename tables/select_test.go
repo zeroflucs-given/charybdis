@@ -440,7 +440,7 @@ func TestSelectUsingServiceLevels(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Assert
-	fetched, errGet := manager.GetUsingOptions(ctx, tables.WithKey("order_id", "select-test-service-levels"), tables.UsingSelectServiceLevel("don't fail"))
+	fetched, errGet := manager.GetUsingOptions(ctx, tables.WithKey("order_id", "select-test-service-levels"), tables.UsingServiceLevel("don't fail"))
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get our object back")
 }
