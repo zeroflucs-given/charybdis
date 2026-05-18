@@ -46,7 +46,7 @@ func CreateDDLForRole(rolename string, options ...RoleOption) ([]metadata.DDLOpe
 
 		commands = append(commands, metadata.DDLOperation{
 			Description: fmt.Sprintf("Set the password for %q as provided", rolename),
-			Command:     fmt.Sprintf("ALTER ROLE %s WITH PASSWORD = '%s'", rolename, EscapePassword(*opts.password)),
+			Command:     fmt.Sprintf("ALTER ROLE %s WITH PASSWORD = '%s'", rolename, EscapeSingleQuote(*opts.password)),
 		})
 	}
 

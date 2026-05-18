@@ -39,4 +39,7 @@ function highlight() {
   sed -u -e 's!'"${PATTERN}"'!'"$COLOR"'&'"$RESET"'!g' "$@"
 }
 
-go test -v -cover -covermode=atomic -coverprofile=coverage.out -coverpkg=./...  ./... | highlight "PASS" "$GREEN" | highlight "FAIL" "$RED" | highlight "RUN" "$CYAN"
+go test -v -cover -covermode=atomic -coverprofile=coverage.out -coverpkg=./...  ./... \
+  | highlight "PASS" "$GREEN" \
+  | highlight "FAIL" "$RED"   \
+  | highlight "RUN" "$CYAN"

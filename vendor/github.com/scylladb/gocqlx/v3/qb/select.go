@@ -132,7 +132,7 @@ func (b *SelectBuilder) From(table string) *SelectBuilder {
 }
 
 // Json sets the clause of the query.
-func (b *SelectBuilder) Json() *SelectBuilder { // nolint: revive
+func (b *SelectBuilder) Json() *SelectBuilder {
 	b.json = true
 	return b
 }
@@ -172,6 +172,12 @@ func (b *SelectBuilder) Timeout(d time.Duration) *SelectBuilder {
 // parameter name.
 func (b *SelectBuilder) TimeoutNamed(name string) *SelectBuilder {
 	b.using.TimeoutNamed(name)
+	return b
+}
+
+// ServiceLevel adds a USING SERVICE LEVEL clause with the given name to the query
+func (b *SelectBuilder) ServiceLevel(name string) *SelectBuilder {
+	b.using.ServiceLevel(name)
 	return b
 }
 

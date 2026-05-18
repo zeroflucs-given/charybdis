@@ -107,7 +107,7 @@ func WithBindings(bindings ...any) QueryOption {
 }
 
 // WithKey creates a query option that translates to a `name = value` statement in a `where` clause.
-// Note, don't use inbetween a WithPredicates and WithBindings option - that will mess up key -> value alignment
+// Note, don't use in between WithPredicates and WithBindings options - that will mess up key -> value alignment
 func WithKey(name string, value any) QueryOption {
 	return &queryOption{
 		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
@@ -118,12 +118,20 @@ func WithKey(name string, value any) QueryOption {
 }
 
 // WithCondition creates a query option that translates to a `name op value` statement in a `where` clause.
-// Note, don't use inbetween a WithPredicates and WithBindings option - that will mess up key -> value alignment
+// Note, don't use in between WithPredicates and WithBindings options - that will mess up key -> value alignment
 func WithCondition(cond qb.Cmp, value any) QueryOption {
 	return &queryOption{
 		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
 			return builder.Where(cond)
 		},
 		queryBindings: []any{value},
+	}
+}
+
+func UsingSelectServiceLevel(name string) QueryOption {
+	return &queryOption{
+		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
+			return builder.ServiceLevel(name)
+		},
 	}
 }

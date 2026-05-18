@@ -27,12 +27,12 @@ github.com/scylladb/go-reflectx v1.0.1 h1:b917wZM7189pZdlND9PbIJ6NQxfDPfBvUaQ7cj
 github.com/scylladb/go-reflectx v1.0.1/go.mod h1:rWnOfDIRWBGN0miMLIcoPt/Dhi2doCMZqwMCJ3KupFc=
 github.com/scylladb/gocql v1.17.3 h1:dmtjGn9asID97piyuz85PEVHEIHm9H9GyMti1+RMObo=
 github.com/scylladb/gocql v1.17.3/go.mod h1:kadKEoGTS/dMUXscNhxR8ORMyx1grygMCNppaacjkh8=
-github.com/scylladb/gocqlx/v3 v3.0.4 h1:37rMVFEUlsGGNYB7OLR7991KwBYR2WA5TU7wtduClas=
-github.com/scylladb/gocqlx/v3 v3.0.4/go.mod h1:3vBkGO+HRh/BYypLWXzurQ45u1BAO0VGBhg5VgperPY=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/zeroflucs-given/generics v0.0.0-20260129235756-dd843c240aba h1:4DI5aT5jwpXyHw/j7k95RbGtzJEBgEIJTCbfmXELydo=
 github.com/zeroflucs-given/generics v0.0.0-20260129235756-dd843c240aba/go.mod h1:m7DDdHZboNZ4p5LudsHry1FTfaerW7JIHaL39sztv4g=
+github.com/zeroflucs-given/gocqlx/v3 v3.0.4-zf1 h1:bhJ7raBPLnclElEnbGBAoZKbFsdMk7Q8f5sgO/rK2bI=
+github.com/zeroflucs-given/gocqlx/v3 v3.0.4-zf1/go.mod h1:1OMgcqJriEXKt1WA0ZNXgLaWlQktr6M33M8vbufveNs=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
 go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
 go.opentelemetry.io/otel v1.43.0 h1:mYIM03dnh5zfN7HautFE4ieIig9amkNANT+xcVxAj9I=
