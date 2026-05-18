@@ -4,8 +4,6 @@ go 1.25.5
 
 tool go.uber.org/mock/mockgen
 
-replace github.com/scylladb/gocqlx/v3 => github.com/zeroflucs-given/gocqlx/v3 v3.0.4-zf1
-
 replace github.com/gocql/gocql => github.com/scylladb/gocql v1.17.3
 
 require (

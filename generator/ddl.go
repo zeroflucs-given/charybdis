@@ -14,25 +14,19 @@ type DefinitionGenerator struct {
 
 // NewDefinitionGenerator creates a new initialised DefinitionGenerator from a gocql Session
 func NewDefinitionGenerator(logger *zap.Logger, session *gocql.Session) *DefinitionGenerator {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
 	return &DefinitionGenerator{
 		logger:  logger,
 		session: gocqlx.NewSession(session),
 	}
 }
 
-// NewDefinitionGeneratorX creates a new initialised DefinitionGenerator from a gocqlx Session
-func NewDefinitionGeneratorX(logger *zap.Logger, session gocqlx.Session) *DefinitionGenerator {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-	return &DefinitionGenerator{
-		logger:  logger,
-		session: session,
-	}
-}
+//// NewDefinitionGeneratorX creates a new initialised DefinitionGenerator from a gocqlx Session
+//func NewDefinitionGeneratorX(logger *zap.Logger, session gocqlx.Session) *DefinitionGenerator {
+//	return &DefinitionGenerator{
+//		logger:  logger,
+//		session: session,
+//	}
+//}
 
 func (g *DefinitionGenerator) Close() {
 	g.session.Close()

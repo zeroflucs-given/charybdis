@@ -7,7 +7,6 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v3"
 	"github.com/scylladb/gocqlx/v3/qb"
-	"go.uber.org/zap"
 )
 
 // GetByPartitionKey gets the first record from a partition. If there are multiple records, the
@@ -36,9 +35,6 @@ func (t *baseManagerImpl[T]) GetUsingOptions(ctx context.Context, opts ...QueryO
 	return returnWithTracing(ctx, t.Tracer, t.Name+"/GetUsingOptions", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
 		var target T
 		stmt, params := t.basicQueryBuilder(opts...).ToCql()
-		if t.Logger != nil {
-			t.Logger.Debug("get", zap.String("query", stmt), zap.Any("params", params))
-		}
 		errQuery := t.Session.Query(stmt, params).WithContext(ctx).Bind(t.bindings(opts...)...).Get(&target)
 		return &target, errQuery
 	})

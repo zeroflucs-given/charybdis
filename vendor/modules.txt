@@ -62,8 +62,8 @@ github.com/pmezard/go-difflib/difflib
 # github.com/scylladb/go-reflectx v1.0.1
 ## explicit
 github.com/scylladb/go-reflectx
-# github.com/scylladb/gocqlx/v3 v3.0.4 => github.com/zeroflucs-given/gocqlx/v3 v3.0.4-zf1
-## explicit; go 1.25.0
+# github.com/scylladb/gocqlx/v3 v3.0.4
+## explicit; go 1.21
 github.com/scylladb/gocqlx/v3
 github.com/scylladb/gocqlx/v3/qb
 github.com/scylladb/gocqlx/v3/table
@@ -165,5 +165,4 @@ gopkg.in/inf.v0
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# github.com/scylladb/gocqlx/v3 => github.com/zeroflucs-given/gocqlx/v3 v3.0.4-zf1
 # github.com/gocql/gocql => github.com/scylladb/gocql v1.17.3

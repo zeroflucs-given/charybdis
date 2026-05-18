@@ -21,7 +21,7 @@ func TestSetServiceLevelExistenceDDL(t *testing.T) {
 			level:     "foo",
 			operation: "create",
 			want: []OpTest{
-				CommandMatchOpTest("CREATE SERVICE LEVEL IF NOT EXISTS 'foo'"),
+				CommandMatchOpTest("CREATE SERVICE LEVEL IF NOT EXISTS foo"),
 			},
 			wantErr: nil,
 		},
@@ -30,7 +30,7 @@ func TestSetServiceLevelExistenceDDL(t *testing.T) {
 			level:     "foo",
 			operation: "drop",
 			want: []OpTest{
-				CommandMatchOpTest("DROP SERVICE LEVEL IF EXISTS 'foo'"),
+				CommandMatchOpTest("DROP SERVICE LEVEL IF EXISTS foo"),
 			},
 			wantErr: nil,
 		},
@@ -66,24 +66,19 @@ func TestUpdateServiceLevelDDL(t *testing.T) {
 		wantErr error
 	}{
 		{
+			name:    "bad level",
+			level:   "<bad>",
+			options: []ServiceLevelOption{},
+			wantErr: ErrInvalidInput,
+		},
+		{
 			name:  "new shares",
 			level: "foo",
 			options: []ServiceLevelOption{
 				WithShares(777),
 			},
 			want: []OpTest{
-				CommandMatchOpTest("ALTER SERVICE LEVEL 'foo' WITH SHARES = 777"),
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "quotes",
-			level: "foo's friend",
-			options: []ServiceLevelOption{
-				WithShares(900),
-			},
-			want: []OpTest{
-				CommandMatchOpTest("ALTER SERVICE LEVEL 'foo''s friend' WITH SHARES = 900"),
+				CommandMatchOpTest("ALTER SERVICE LEVEL foo WITH SHARES = 777"),
 			},
 			wantErr: nil,
 		},
@@ -102,7 +97,7 @@ func TestUpdateServiceLevelDDL(t *testing.T) {
 				WithShares(0),
 			},
 			want: []OpTest{
-				CommandMatchOpTest("ALTER SERVICE LEVEL 'foo' WITH SHARES = 1000"),
+				CommandMatchOpTest("ALTER SERVICE LEVEL foo WITH SHARES = 1000"),
 			},
 			wantErr: nil,
 		},
@@ -113,7 +108,7 @@ func TestUpdateServiceLevelDDL(t *testing.T) {
 				WithTimeout(10 * time.Second),
 			},
 			want: []OpTest{
-				CommandMatchOpTest("ALTER SERVICE LEVEL 'bar' WITH timeout = 10000ms"),
+				CommandMatchOpTest("ALTER SERVICE LEVEL bar WITH timeout = 10000ms"),
 			},
 			wantErr: nil,
 		},
@@ -132,7 +127,7 @@ func TestUpdateServiceLevelDDL(t *testing.T) {
 				WithWorkloadType("interactive"),
 			},
 			want: []OpTest{
-				CommandMatchOpTest("ALTER SERVICE LEVEL 'bar' WITH workload_type = interactive"),
+				CommandMatchOpTest("ALTER SERVICE LEVEL bar WITH workload_type = interactive"),
 			},
 			wantErr: nil,
 		},
@@ -176,16 +171,7 @@ func TestServiceLevelAttachmentDDL(t *testing.T) {
 			role:      "user",
 			operation: "attach",
 			want: []OpTest{
-				CommandMatchOpTest("ATTACH SERVICE LEVEL 'baz' TO user"),
-			},
-		},
-		{
-			name:      "attach odds chars",
-			level:     `'!^&@#%^&%#$\(`,
-			role:      "user",
-			operation: "attach",
-			want: []OpTest{
-				CommandMatchOpTest(`ATTACH SERVICE LEVEL '''!^&@#%^&%#$\(' TO user`),
+				CommandMatchOpTest("ATTACH SERVICE LEVEL baz TO user"),
 			},
 		},
 		{
@@ -194,7 +180,7 @@ func TestServiceLevelAttachmentDDL(t *testing.T) {
 			role:      "user",
 			operation: "detach",
 			want: []OpTest{
-				CommandMatchOpTest("DETACH SERVICE LEVEL 'baz' FROM user"),
+				CommandMatchOpTest("DETACH SERVICE LEVEL baz FROM user"),
 			},
 		},
 		{
@@ -208,6 +194,13 @@ func TestServiceLevelAttachmentDDL(t *testing.T) {
 			name:      "bad user",
 			level:     "baz",
 			role:      "<bad>",
+			operation: "attach",
+			wantErr:   ErrInvalidInput,
+		},
+		{
+			name:      "bad level",
+			level:     "<bad>",
+			role:      "user",
 			operation: "attach",
 			wantErr:   ErrInvalidInput,
 		},

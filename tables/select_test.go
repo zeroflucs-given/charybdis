@@ -4,13 +4,9 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
-	"github.com/scylladb/gocqlx/v3"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 
-	"github.com/zeroflucs-given/charybdis/generator"
 	"github.com/zeroflucs-given/charybdis/tables"
 )
 
@@ -406,41 +402,4 @@ func TestGetUsingOptions(t *testing.T) {
 	require.NoError(t, err, "Should not error getting row")
 	require.Equal(t, 1, res.Quantity, "expected quantity to be 1")
 
-}
-
-// TestSelectUsingServiceLevels checks we can insert a record using a custom service level
-func TestSelectUsingServiceLevels(t *testing.T) {
-	log := zaptest.NewLogger(t)
-
-	// Test globals
-	ctx := context.Background()
-	manager, err := tables.NewTableManager[Order](
-		ctx,
-		tables.WithCluster(testClusterConfig),
-		tables.WithKeyspace(TestKeyspace),
-		tables.WithTableSpecification(OrdersTableSpec),
-		tables.WithLogger(log),
-	)
-	require.NoError(t, err, "Should not error starting up")
-
-	// Arrange
-	obj := &Order{
-		OrderID:         "select-test-service-levels",
-		ShippingAddress: testAddress(4, "Some Street", "Somerville"),
-	}
-
-	session, isGoCQLX := manager.GetSession().(gocqlx.Session)
-	require.True(t, isGoCQLX)
-	gen := generator.NewDefinitionGeneratorX(log, session)
-	errSL := gen.CreateServiceLevel(ctx, "don't fail", generator.WithShares(500))
-	require.NoError(t, errSL, "Should not error creating service-level")
-
-	errInsert := manager.Insert(ctx, obj)
-	require.NoError(t, errInsert, "Should not error inserting")
-	time.Sleep(1 * time.Second)
-
-	// Assert
-	fetched, errGet := manager.GetUsingOptions(ctx, tables.WithKey("order_id", "select-test-service-levels"), tables.UsingServiceLevel("don't fail"))
-	require.NoError(t, errGet, "Should not error fetching")
-	require.NotNil(t, fetched, "Should get our object back")
 }

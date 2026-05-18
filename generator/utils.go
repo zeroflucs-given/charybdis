@@ -46,7 +46,7 @@ func (s hashSet[T]) Has(item T) bool {
 	return ok
 }
 
-func EscapeSingleQuote(password string) string {
+func EscapePassword(password string) string {
 	b := &bytes.Buffer{}
 
 	for _, c := range password {
