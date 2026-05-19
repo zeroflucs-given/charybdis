@@ -46,7 +46,7 @@ func CreateDDLForRole(rolename string, options ...RoleOption) ([]metadata.DDLOpe
 
 		commands = append(commands, metadata.DDLOperation{
 			Description: fmt.Sprintf("Set the password for %q as provided", rolename),
-			Command:     fmt.Sprintf("ALTER ROLE %s WITH PASSWORD = '%s'", rolename, EscapePassword(*opts.password)),
+			Command:     fmt.Sprintf("ALTER ROLE %s WITH PASSWORD = '%s'", rolename, EscapeSingleQuote(*opts.password)),
 		})
 	}
 
@@ -64,6 +64,14 @@ func CreateDDLForRole(rolename string, options ...RoleOption) ([]metadata.DDLOpe
 		})
 	}
 
+	if opts.serviceLevel != nil {
+		cmds, err := ServiceLevelAttachmentDDL(*opts.serviceLevel, rolename, OpAttach)
+		if err != nil {
+			return nil, err
+		}
+		commands = append(commands, cmds...)
+	}
+
 	return commands, nil
 }
 
@@ -73,6 +81,7 @@ type roleOpt struct {
 	isSuperuser     *bool
 	isLogin         *bool
 	options         map[string]any
+	serviceLevel    *string
 }
 
 type RoleOption func(opt *roleOpt)
@@ -114,5 +123,12 @@ func WithRoleIsLogin(isLogin bool) RoleOption {
 func WithRoleOptions(opts map[string]any) RoleOption {
 	return func(opt *roleOpt) {
 		opt.options = opts
+	}
+}
+
+// WithRoleServiceLevel attaches the named service level to the role
+func WithRoleServiceLevel(serviceLevel string) RoleOption {
+	return func(opt *roleOpt) {
+		opt.serviceLevel = ptrTo(serviceLevel)
 	}
 }

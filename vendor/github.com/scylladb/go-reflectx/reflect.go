@@ -8,6 +8,7 @@
 // allows for Go-compatible named attribute access, including accessing embedded
 // struct attributes and the ability to use  functions and struct tags to
 // customize field names.
+//
 package reflectx
 
 import (

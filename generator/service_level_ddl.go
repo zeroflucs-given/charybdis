@@ -8,19 +8,15 @@ import (
 )
 
 func SetServiceLevelExistenceDDL(name string, operation string) ([]metadata.DDLOperation, error) {
-	if err := IsValidIdentifier(name); err != nil {
-		return nil, fmt.Errorf("invalid service level name: %w", err)
-	}
-
 	var condition string
 	var desc string
 	operation = strings.TrimSpace(strings.ToUpper(operation))
 
 	switch operation {
-	case "CREATE":
+	case OpCreate:
 		condition = "NOT EXISTS"
 		desc = "Create service level '%s' if it doesn't already exist"
-	case "DROP":
+	case OpDrop:
 		condition = "EXISTS"
 		desc = "Drop service level '%s' if it exists"
 	default:
@@ -30,16 +26,12 @@ func SetServiceLevelExistenceDDL(name string, operation string) ([]metadata.DDLO
 	return []metadata.DDLOperation{
 		{
 			Description: fmt.Sprintf(desc, name),
-			Command:     fmt.Sprintf("%s SERVICE LEVEL IF %s %s", operation, condition, name),
+			Command:     fmt.Sprintf("%s SERVICE LEVEL IF %s '%s'", operation, condition, EscapeSingleQuote(name)),
 		},
 	}, nil
 }
 
 func UpdateServiceLevelDDL(name string, opts ...ServiceLevelOption) ([]metadata.DDLOperation, error) {
-	if err := IsValidIdentifier(name); err != nil {
-		return nil, fmt.Errorf("invalid service level name: %w", err)
-	}
-
 	opt := collectServiceLevelOptions(opts)
 	var commands []metadata.DDLOperation
 
@@ -55,7 +47,7 @@ func UpdateServiceLevelDDL(name string, opts ...ServiceLevelOption) ([]metadata.
 
 		commands = append(commands, metadata.DDLOperation{
 			Description: fmt.Sprintf("Assigning %d shares to service level '%s'", shares, name),
-			Command:     fmt.Sprintf("ALTER SERVICE LEVEL %s WITH SHARES = %d", name, shares),
+			Command:     fmt.Sprintf("ALTER SERVICE LEVEL '%s' WITH SHARES = %d", EscapeSingleQuote(name), shares),
 		})
 	}
 
@@ -68,7 +60,7 @@ func UpdateServiceLevelDDL(name string, opts ...ServiceLevelOption) ([]metadata.
 
 		commands = append(commands, metadata.DDLOperation{
 			Description: fmt.Sprintf("Assigning timeout of '%dms' to service level '%s'", timeout, name),
-			Command:     fmt.Sprintf("ALTER SERVICE LEVEL %s WITH timeout = %dms", name, timeout),
+			Command:     fmt.Sprintf("ALTER SERVICE LEVEL '%s' WITH timeout = %dms", EscapeSingleQuote(name), timeout),
 		})
 	}
 
@@ -80,7 +72,7 @@ func UpdateServiceLevelDDL(name string, opts ...ServiceLevelOption) ([]metadata.
 
 		commands = append(commands, metadata.DDLOperation{
 			Description: fmt.Sprintf("Assigning workload type '%s' to service level '%s'", workloadType, name),
-			Command:     fmt.Sprintf("ALTER SERVICE LEVEL %s WITH workload_type = %s", name, workloadType),
+			Command:     fmt.Sprintf("ALTER SERVICE LEVEL '%s' WITH workload_type = %s", EscapeSingleQuote(name), workloadType),
 		})
 	}
 
@@ -88,10 +80,6 @@ func UpdateServiceLevelDDL(name string, opts ...ServiceLevelOption) ([]metadata.
 }
 
 func ServiceLevelAttachmentDDL(level, role, operation string) ([]metadata.DDLOperation, error) {
-	if err := IsValidIdentifier(level); err != nil {
-		return nil, fmt.Errorf("invalid service level name: %w", err)
-	}
-
 	if err := IsValidIdentifier(role); err != nil {
 		return nil, fmt.Errorf("invalid role name: %w", err)
 	}
@@ -99,9 +87,9 @@ func ServiceLevelAttachmentDDL(level, role, operation string) ([]metadata.DDLOpe
 	var preposition string
 	operation = strings.TrimSpace(strings.ToUpper(operation))
 	switch operation {
-	case "ATTACH":
+	case OpAttach:
 		preposition = "TO"
-	case "DETACH":
+	case OpDetach:
 		preposition = "FROM"
 	default:
 		return nil, fmt.Errorf("unknown service level operation '%s': %w", operation, ErrUnknownOperation)
@@ -109,7 +97,7 @@ func ServiceLevelAttachmentDDL(level, role, operation string) ([]metadata.DDLOpe
 
 	command := metadata.DDLOperation{
 		Description: fmt.Sprintf("%sing the service level '%s' %s the role '%s'", strings.ToLower(operation), level, strings.ToLower(preposition), role),
-		Command:     fmt.Sprintf("%s SERVICE LEVEL %s %s %s", operation, level, preposition, role),
+		Command:     fmt.Sprintf("%s SERVICE LEVEL '%s' %s %s", operation, EscapeSingleQuote(level), preposition, role),
 	}
 	return []metadata.DDLOperation{command}, nil
 }

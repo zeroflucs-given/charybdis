@@ -22,7 +22,7 @@ func ExactMatchOpTest(want metadata.DDLOperation) OpTest {
 func CommandMatchOpTest(want string) OpTest {
 	return func(got metadata.DDLOperation) error {
 		if want != got.Command {
-			return fmt.Errorf("ddl command doesn't match the expected value '%s' v '%s'", got.Command, want)
+			return fmt.Errorf("ddl command doesn't match the expected value: expected='%s' v got='%s'", want, got.Command)
 		}
 		return nil
 	}

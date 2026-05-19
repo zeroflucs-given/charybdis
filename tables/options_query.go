@@ -107,7 +107,7 @@ func WithBindings(bindings ...any) QueryOption {
 }
 
 // WithKey creates a query option that translates to a `name = value` statement in a `where` clause.
-// Note, don't use inbetween a WithPredicates and WithBindings option - that will mess up key -> value alignment
+// Note, don't use in between WithPredicates and WithBindings options - that will mess up key -> value alignment
 func WithKey(name string, value any) QueryOption {
 	return &queryOption{
 		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
@@ -118,7 +118,7 @@ func WithKey(name string, value any) QueryOption {
 }
 
 // WithCondition creates a query option that translates to a `name op value` statement in a `where` clause.
-// Note, don't use inbetween a WithPredicates and WithBindings option - that will mess up key -> value alignment
+// Note, don't use in between WithPredicates and WithBindings options - that will mess up key -> value alignment
 func WithCondition(cond qb.Cmp, value any) QueryOption {
 	return &queryOption{
 		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
@@ -127,3 +127,14 @@ func WithCondition(cond qb.Cmp, value any) QueryOption {
 		queryBindings: []any{value},
 	}
 }
+
+// TODO: Waiting on https://github.com/scylladb/gocqlx/pull/370 to be merged before this can be made available
+//
+//// UsingServiceLevel provides a "USING SERVICE LEVEL" clause to the SelectBuilder
+//func UsingServiceLevel(name string) QueryOption {
+//	return &queryOption{
+//		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
+//			return builder.ServiceLevel(name)
+//		},
+//	}
+//}

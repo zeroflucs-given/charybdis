@@ -13,16 +13,19 @@ if ! command -v "$CONTAINER_RUNNER" >& /dev/null; then
   exit 1
 fi
 
-pushd ./testing/single-node
-# "$CONTAINER_RUNNER" compose pull
-"$CONTAINER_RUNNER" compose up -d
-popd
+RUN_COMPOSE=1
+if [[ "$1" = "-n" ]] || [[ "$1" = "--no-compose" ]]; then
+  RUN_COMPOSE=0
+fi
 
-echo "Awaiting ScyllaDB: "
-while ! nc -z localhost 9042; do
-  echo "."
-  sleep 0.1
-done
+if [[ "$RUN_COMPOSE" = "1" ]]; then
+  "$CONTAINER_RUNNER" compose -f ./testing/single-node/docker-compose.yml up -d
+  printf "Waiting for ScyllaDB: "
+  while ! nc -z localhost 9042; do
+    echo "."
+    sleep 0.1
+  done
+fi
 
 go build ./...
 go vet ./...
@@ -39,4 +42,7 @@ function highlight() {
   sed -u -e 's!'"${PATTERN}"'!'"$COLOR"'&'"$RESET"'!g' "$@"
 }
 
-go test -v -cover -covermode=atomic -coverprofile=coverage.out -coverpkg=./...  ./... | highlight "PASS" "$GREEN" | highlight "FAIL" "$RED" | highlight "RUN" "$CYAN"
+go test -v -cover -covermode=atomic -coverprofile=coverage.out -coverpkg=./...  ./... \
+  | highlight "PASS" "$GREEN" \
+  | highlight "FAIL" "$RED"   \
+  | highlight "RUN" "$CYAN"
