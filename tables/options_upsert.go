@@ -87,3 +87,11 @@ func WithUpsertExists() UpsertOption {
 		isOptPrecondition: true,
 	}
 }
+
+func WithUpsertUsingTimestamp(ts int64) UpsertOption {
+	return &upsertOption{
+		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {
+			return builder.Timestamp(time.UnixMilli(ts))
+		},
+	}
+}

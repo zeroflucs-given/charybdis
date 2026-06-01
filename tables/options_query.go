@@ -1,6 +1,8 @@
 package tables
 
 import (
+	"slices"
+
 	"github.com/scylladb/gocqlx/v3"
 	"github.com/scylladb/gocqlx/v3/qb"
 
@@ -11,8 +13,8 @@ import (
 type queryOption struct {
 	queryMutator   func(q *gocqlx.Queryx) *gocqlx.Queryx
 	queryBuilderFn func(builder *qb.SelectBuilder) *qb.SelectBuilder
-	queryColumns   []string
 	queryBindings  []any
+	cols           []string
 }
 
 // applyToSelectBuilder applies this option to the given select builder
@@ -32,7 +34,7 @@ func (s *queryOption) applyToBuilder(builder *qb.SelectBuilder) *qb.SelectBuilde
 }
 
 func (s *queryOption) columns() []string {
-	return s.queryColumns
+	return s.cols
 }
 
 func (s *queryOption) bindings() []any {
@@ -63,7 +65,10 @@ func WithSort(column string, order int) QueryOption {
 // WithColumns specifies the columns to return in a query result
 func WithColumns(columns ...string) QueryOption {
 	return &queryOption{
-		queryColumns: columns,
+		queryBuilderFn: func(builder *qb.SelectBuilder) *qb.SelectBuilder {
+			return builder.Columns(columns...)
+		},
+		cols: slices.Clone(columns),
 	}
 }
 

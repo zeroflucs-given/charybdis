@@ -150,19 +150,21 @@ type InsertOption interface {
 
 type DeleteOption interface {
 	applyToQuery(query *gocqlx.Queryx) *gocqlx.Queryx
-	columns() []string      // The columns to delete in matched rows
-	predicates() []qb.Cmp   // Predicate tests used for the query (ie the `where` clause conditions)
-	bindings() []any        // Values bound to a query
-	ifConditions() []qb.Cmp // conditions used by lwt for atomicity
-	ifExists() bool         // conditions used by lwt for atomicity
+	applyToBuilder(builder *qb.DeleteBuilder) *qb.DeleteBuilder
+	bindings() []any // Values bound to a query
+
+	conditions() []qb.Cmp
+
+	// isPrecondition indicates if this option applies a precondition to the query
+	isPrecondition() bool
 }
 
 // QueryOption is an interface that describes options that can mutate a scan.
 type QueryOption interface {
 	applyToQuery(query *gocqlx.Queryx) *gocqlx.Queryx
 	applyToBuilder(builder *qb.SelectBuilder) *qb.SelectBuilder
-	columns() []string // The columns to return from the query - if this returns 0 items, all columns are returned
-	bindings() []any   // Values bound to a query
+	columns() []string
+	bindings() []any // Values bound to a query
 }
 
 // UpdateOption is an interface that describes options that can mutate an update

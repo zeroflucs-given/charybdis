@@ -2,6 +2,7 @@
 *
 !/**/
 !*.*
+!/vendor/**
 
 # Extensionless files to allow
 !Dockerfile
@@ -23,5 +24,6 @@ thumbs.db
 coverage.html
 coverage.out
 coverage_local.out
+
 *.lcov
 *.pprof

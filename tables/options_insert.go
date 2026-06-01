@@ -38,3 +38,11 @@ func WithInsertTTL(d time.Duration) InsertOption {
 		},
 	}
 }
+
+func WithInsertUsingTimestamp(ts int64) InsertOption {
+	return &insertOption{
+		insertBuilderFn: func(builder *qb.InsertBuilder) *qb.InsertBuilder {
+			return builder.Timestamp(time.UnixMilli(ts))
+		},
+	}
+}

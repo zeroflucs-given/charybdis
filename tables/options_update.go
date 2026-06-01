@@ -73,3 +73,11 @@ func WithUpdateExists() UpdateOption {
 		isOptPrecondition: true,
 	}
 }
+
+func WithUpdateUsingTimestamp(ts int64) UpdateOption {
+	return &updateOption{
+		updateBuilderFn: func(builder *qb.UpdateBuilder) *qb.UpdateBuilder {
+			return builder.Timestamp(time.UnixMilli(ts))
+		},
+	}
+}

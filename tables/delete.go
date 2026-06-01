@@ -79,18 +79,14 @@ func (t *tableManagerImpl[T]) DeleteUsingOptions(ctx context.Context, opts ...De
 }
 
 func (t *tableManagerImpl[T]) deleteInternal(ctx context.Context, opts ...DeleteOption) error {
-	var cols []string
-	var predicates []qb.Cmp
 	var bindings []any
-	var ifConditions []qb.Cmp
-	var ifExists bool
+	var isLWT bool
+	var predicates []qb.Cmp
 
 	for _, opt := range opts {
-		cols = append(cols, opt.columns()...)
-		predicates = append(predicates, opt.predicates()...)
+		isLWT = isLWT || opt.isPrecondition()
+		predicates = append(predicates, opt.conditions()...)
 		bindings = append(bindings, opt.bindings()...)
-		ifConditions = append(ifConditions, opt.ifConditions()...)
-		ifExists = ifExists || opt.ifExists()
 	}
 
 	// Pre-delete hooks
@@ -109,15 +105,10 @@ func (t *tableManagerImpl[T]) deleteInternal(ctx context.Context, opts ...Delete
 	retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
 	defer cancel()
 
-	isLWT := len(ifConditions) > 0 || ifExists
-	builder := qb.Delete(t.qualifiedTableName).
-		Columns(cols...).
-		Where(predicates...)
+	builder := qb.Delete(t.qualifiedTableName)
 
-	if len(ifConditions) > 0 {
-		builder = builder.If(ifConditions...)
-	} else if ifExists {
-		builder = builder.Existing()
+	for _, b := range opts {
+		builder = b.applyToBuilder(builder)
 	}
 
 	query := t.Session.
@@ -125,8 +116,8 @@ func (t *tableManagerImpl[T]) deleteInternal(ctx context.Context, opts ...Delete
 		WithContext(retryCtx).
 		Consistency(t.writeConsistency)
 
-	for _, opt := range opts {
-		query = opt.applyToQuery(query)
+	for _, mut := range opts {
+		query = mut.applyToQuery(query)
 	}
 	query = query.Bind(bindings...)
 

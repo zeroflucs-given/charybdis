@@ -126,11 +126,6 @@ func (t *baseManagerImpl[T]) basicQueryBuilder(opts ...QueryOption) *qb.SelectBu
 		cols = append(cols, opt.columns()...)
 	}
 
-	if len(cols) == 0 {
-		cols = t.TableMetadata.Columns
-	}
-	builder = builder.Columns(cols...)
-
 	return builder
 }
 
