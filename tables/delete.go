@@ -78,6 +78,19 @@ func (t *tableManagerImpl[T]) DeleteUsingOptions(ctx context.Context, opts ...De
 	})
 }
 
+// Truncate the table, leaving it with no rows
+func (t *tableManagerImpl[T]) Truncate(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name+"/Truncate", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
+		query := t.Session.
+			Query("TRUNCATE "+t.qualifiedTableName, nil).
+			WithContext(ctx).
+			Consistency(t.writeConsistency)
+		defer query.Release()
+		t.Logger.Debug("truncate", zap.String("operation", "truncate"), zap.String("query", query.String()))
+		return query.Exec()
+	})
+}
+
 func (t *tableManagerImpl[T]) deleteInternal(ctx context.Context, opts ...DeleteOption) error {
 	var bindings []any
 	var isLWT bool

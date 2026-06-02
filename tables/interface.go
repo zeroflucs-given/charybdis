@@ -29,6 +29,9 @@ type TableManager[T any] interface {
 	// DeleteUsingOptions removes rows/columns as selected by the supplied options
 	DeleteUsingOptions(ctx context.Context, opts ...DeleteOption) error
 
+	// Truncate the table, leaving it with no rows
+	Truncate(ctx context.Context) error
+
 	// GetByPartitionKey gets the first record from a partition. If there are multiple records, the
 	// behaviour is to return the first record by clustering order. Equivalent to GetByPrimaryKey
 	// if no clustering key is set
