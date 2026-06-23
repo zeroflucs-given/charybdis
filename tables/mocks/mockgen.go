@@ -15,10 +15,9 @@ import (
 
 	gocqlx "github.com/scylladb/gocqlx/v3"
 	qb "github.com/scylladb/gocqlx/v3/qb"
-	gomock "go.uber.org/mock/gomock"
-
 	metadata "github.com/zeroflucs-given/charybdis/metadata"
 	tables "github.com/zeroflucs-given/charybdis/tables"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockTableManager is a mock of TableManager interface.
@@ -443,6 +442,20 @@ func (mr *MockTableManagerMockRecorder[T]) SelectByPrimaryKey(ctx, fn, opts any,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectByPrimaryKey", reflect.TypeOf((*MockTableManager[T])(nil).SelectByPrimaryKey), varargs...)
 }
 
+// Truncate mocks base method.
+func (m *MockTableManager[T]) Truncate(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Truncate", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Truncate indicates an expected call of Truncate.
+func (mr *MockTableManagerMockRecorder[T]) Truncate(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Truncate", reflect.TypeOf((*MockTableManager[T])(nil).Truncate), ctx)
+}
+
 // Update mocks base method.
 func (m *MockTableManager[T]) Update(ctx context.Context, instance *T, opts ...tables.UpdateOption) error {
 	m.ctrl.T.Helper()
@@ -810,6 +823,20 @@ func (m *MockDeleteOption) EXPECT() *MockDeleteOptionMockRecorder {
 	return m.recorder
 }
 
+// applyToBuilder mocks base method.
+func (m *MockDeleteOption) applyToBuilder(builder *qb.DeleteBuilder) *qb.DeleteBuilder {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "applyToBuilder", builder)
+	ret0, _ := ret[0].(*qb.DeleteBuilder)
+	return ret0
+}
+
+// applyToBuilder indicates an expected call of applyToBuilder.
+func (mr *MockDeleteOptionMockRecorder) applyToBuilder(builder any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "applyToBuilder", reflect.TypeOf((*MockDeleteOption)(nil).applyToBuilder), builder)
+}
+
 // applyToQuery mocks base method.
 func (m *MockDeleteOption) applyToQuery(query *gocqlx.Queryx) *gocqlx.Queryx {
 	m.ctrl.T.Helper()
@@ -838,60 +865,32 @@ func (mr *MockDeleteOptionMockRecorder) bindings() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "bindings", reflect.TypeOf((*MockDeleteOption)(nil).bindings))
 }
 
-// columns mocks base method.
-func (m *MockDeleteOption) columns() []string {
+// conditions mocks base method.
+func (m *MockDeleteOption) conditions() []qb.Cmp {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "columns")
-	ret0, _ := ret[0].([]string)
-	return ret0
-}
-
-// columns indicates an expected call of columns.
-func (mr *MockDeleteOptionMockRecorder) columns() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "columns", reflect.TypeOf((*MockDeleteOption)(nil).columns))
-}
-
-// ifConditions mocks base method.
-func (m *MockDeleteOption) ifConditions() []qb.Cmp {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ifConditions")
+	ret := m.ctrl.Call(m, "conditions")
 	ret0, _ := ret[0].([]qb.Cmp)
 	return ret0
 }
 
-// ifConditions indicates an expected call of ifConditions.
-func (mr *MockDeleteOptionMockRecorder) ifConditions() *gomock.Call {
+// conditions indicates an expected call of conditions.
+func (mr *MockDeleteOptionMockRecorder) conditions() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ifConditions", reflect.TypeOf((*MockDeleteOption)(nil).ifConditions))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "conditions", reflect.TypeOf((*MockDeleteOption)(nil).conditions))
 }
 
-// ifExists mocks base method.
-func (m *MockDeleteOption) ifExists() bool {
+// isPrecondition mocks base method.
+func (m *MockDeleteOption) isPrecondition() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ifExists")
+	ret := m.ctrl.Call(m, "isPrecondition")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// ifExists indicates an expected call of ifExists.
-func (mr *MockDeleteOptionMockRecorder) ifExists() *gomock.Call {
+// isPrecondition indicates an expected call of isPrecondition.
+func (mr *MockDeleteOptionMockRecorder) isPrecondition() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ifExists", reflect.TypeOf((*MockDeleteOption)(nil).ifExists))
-}
-
-// predicates mocks base method.
-func (m *MockDeleteOption) predicates() []qb.Cmp {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "predicates")
-	ret0, _ := ret[0].([]qb.Cmp)
-	return ret0
-}
-
-// predicates indicates an expected call of predicates.
-func (mr *MockDeleteOptionMockRecorder) predicates() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "predicates", reflect.TypeOf((*MockDeleteOption)(nil).predicates))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "isPrecondition", reflect.TypeOf((*MockDeleteOption)(nil).isPrecondition))
 }
 
 // MockQueryOption is a mock of QueryOption interface.
