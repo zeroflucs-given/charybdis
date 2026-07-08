@@ -33,7 +33,7 @@ func TestCollectSubTypesFromType(t *testing.T) {
 
 	// 	t.Logf("Got: %d subtypes\n", len(got))
 
-	assert.Equal(t, 2, len(got))
+	assert.Len(t, got, 2)
 
 	assert.Equal(t, "Two", got["two"].Name())
 	assert.Equal(t, "Six", got["notsix"].Name())
@@ -84,6 +84,11 @@ func Test_getBaseTypeForScyllaTag(t *testing.T) {
 		{
 			name:    "bad type",
 			tag:     "int>",
+			wantErr: true,
+		},
+		{
+			name:    "extra closing bracket",
+			tag:     "list<address>>",
 			wantErr: true,
 		},
 	}

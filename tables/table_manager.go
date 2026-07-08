@@ -86,7 +86,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 			qualifiedTableName: params.Keyspace + "." + params.TableSpec.Name,
 			allColumnNames:     table.Metadata().Columns,
 			nonKeyColumns: generics.Map(generics.Filter(params.TableSpec.Columns, func(i int, c *metadata.ColumnSpecification) bool {
-				return !(c.IsPartitioningKey || c.IsClusteringKey)
+				return !c.IsPartitioningKey && !c.IsClusteringKey
 			}), func(i int, c *metadata.ColumnSpecification) string {
 				return c.Name
 			}),

@@ -122,7 +122,7 @@ func TestCreateDDLForRole(t *testing.T) {
 			}
 			require.Len(t, got, len(tt.want), "expected the number of commands returned to match the number of tests")
 			for idx, testDDL := range tt.want {
-				assert.NoError(t, testDDL(got[idx]))
+				require.NoError(t, testDDL(got[idx]))
 			}
 
 			t.Logf("statements: %v", got)

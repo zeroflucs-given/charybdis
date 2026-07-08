@@ -83,9 +83,3 @@ type Executable interface {
 	Exec() error
 	ExecCAS() (bool, error)
 }
-
-func asRef[T any](t T) *T {
-	p := new(T)
-	*p = t
-	return p
-}

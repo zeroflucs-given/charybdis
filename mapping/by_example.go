@@ -261,13 +261,10 @@ func getBaseTypesForScyllaTag(tag string) ([]string, error) {
 			buf[len(buf)-1].Reset() // been capturing container type up to here
 		case r == '>':
 			level--
-			if level == 0 {
-				break
-			}
 		case r == ',':
 			buf = append(buf, bytes.Buffer{}) // tuple/map next field
 		case level > 0:
-			buf[len(buf)-1].WriteRune(r)
+			_, _ = buf[len(buf)-1].WriteRune(r)
 		}
 	}
 

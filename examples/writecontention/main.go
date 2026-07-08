@@ -51,7 +51,7 @@ func main() {
 	for range numUpdates {
 		grp.Go(
 			func() error {
-				n := rand.Int() % 3
+				n := rand.Int() % 3 //nolint:gosec // non-cryptographic use: picking a node to write to
 				return updateRandom(gCtx, nodes[n])
 			},
 		)
@@ -109,7 +109,7 @@ func newManager(hosts ...string) tables.TableManager[Record] {
 
 func updateRandom(ctx context.Context, manager tables.TableManager[Record]) error {
 	st := time.Now()
-	uid := rand.Int() % numRecords
+	uid := rand.Int() % numRecords //nolint:gosec // non-cryptographic use: picking a sample record id
 
 	r, errRead := manager.GetByPrimaryKey(ctx, 7, uid)
 	if errRead != nil {

@@ -237,7 +237,7 @@ outer:
 				}
 			}
 
-			return fmt.Errorf("error_running %q: %w", statement.Command, errRun)
+			return fmt.Errorf("error_running %q: %w", Redact(statement.Command), errRun)
 		}
 	}
 

@@ -51,7 +51,7 @@ func CreateDDLFromTableSpecification(keyspace string, spec *metadata.TableSpecif
 
 	// Now create all other columns
 	others := generics.Filter(spec.Columns, func(i int, c *metadata.ColumnSpecification) bool {
-		return !(c.IsPartitioningKey || c.IsClusteringKey)
+		return !c.IsPartitioningKey && !c.IsClusteringKey
 	})
 	for _, column := range others {
 		if existingTable != nil && existingTable.Columns != nil {

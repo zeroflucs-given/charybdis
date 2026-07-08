@@ -120,10 +120,8 @@ func (t *baseManagerImpl[T]) SelectByPrimaryKey(ctx context.Context, fn PageHand
 func (t *baseManagerImpl[T]) basicQueryBuilder(opts ...QueryOption) *qb.SelectBuilder {
 	builder := qb.Select(t.Table.Name())
 
-	var cols []string
 	for _, opt := range opts {
 		builder = opt.applyToBuilder(builder)
-		cols = append(cols, opt.columns()...)
 	}
 
 	return builder

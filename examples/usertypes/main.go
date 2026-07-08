@@ -117,7 +117,7 @@ func pick[S ~[]E, E any](s S) E {
 		var z E
 		return z
 	}
-	return s[rand.IntN(len(s))]
+	return s[rand.IntN(len(s))] //nolint:gosec // non-cryptographic use: picking sample data for the demo
 }
 
 var someStreets = []string{

@@ -142,7 +142,7 @@ func (g *DefinitionGenerator) CreateKeyspace(ctx context.Context, keyspace strin
 
 	g.logger.With(zap.String("query", stmt), zap.Any("scylla_version", version)).Info("Creating keyspace")
 
-	return g.session.ExecStmt(stmt)
+	return g.session.ContextQuery(ctx, stmt, nil).ExecRelease()
 }
 
 func (g *DefinitionGenerator) DropKeyspace(ctx context.Context, keyspace string) error {

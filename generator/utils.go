@@ -62,8 +62,8 @@ func EscapeSingleQuote(password string) string {
 	return b.String()
 }
 
+var rePassword = regexp.MustCompile(`(?i:PASSWORD)\s*=\s*'(?:[^']|'')*'`)
+
 func Redact(str string) string {
-	re := regexp.MustCompile(`(?i:PASSWORD)\s*=\s*'.*'`)
-	str = re.ReplaceAllString(str, "PASSWORD = '<reacted>'")
-	return str
+	return rePassword.ReplaceAllString(str, "PASSWORD = '<redacted>'")
 }
