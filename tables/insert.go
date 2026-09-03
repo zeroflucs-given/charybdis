@@ -15,7 +15,7 @@ import (
 // the same effect with an Upsert if you use the WithNotExist option.
 func (t *tableManagerImpl[T]) Insert(ctx context.Context, instance *T, opts ...InsertOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/Insert", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
-		return t.insertInternal(ctx, instance, true, opts...)
+		return t.insertInternal(ctx, instance, true, nil, opts...)
 	})
 }
 
@@ -23,25 +23,26 @@ func (t *tableManagerImpl[T]) Insert(ctx context.Context, instance *T, opts ...I
 // works for tables with no non-key columns.
 func (t *tableManagerImpl[T]) InsertOrReplace(ctx context.Context, instance *T, opts ...InsertOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/Insert", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
-		return t.insertInternal(ctx, instance, false, opts...)
+		return t.insertInternal(ctx, instance, false, nil, opts...)
 	})
 }
 
 // InsertBulk inserts many objects in parallel, up to a given number. If the concurrency limit is not set,
-// then a default of DefaultBulkConcurrency is used.
+// then a default of DefaultBulkConcurrency is used. The limit applies to statement executions only;
+// preparation work (hooks, query building, binding) runs in parallel across all instances.
 func (t *tableManagerImpl[T]) InsertBulk(ctx context.Context, instances []*T, concurrency int, opts ...InsertOption) error {
 	if concurrency <= 0 {
 		concurrency = DefaultBulkConcurrency
 	}
 
 	return doWithTracing(ctx, t.Tracer, t.Name+"/InsertBulk", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
+		gate := make(execGate, concurrency)
 		grp, grpCtx := errgroup.WithContext(ctx)
-		grp.SetLimit(concurrency)
 
 		for _, v := range instances {
 			item := v
 			grp.Go(func() error {
-				return t.insertInternal(grpCtx, item, true, opts...)
+				return t.insertInternal(grpCtx, item, true, gate, opts...)
 			})
 		}
 
@@ -50,7 +51,7 @@ func (t *tableManagerImpl[T]) InsertBulk(ctx context.Context, instances []*T, co
 }
 
 // insertInternal is a helper function that performs a single upsert
-func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, enforceNotExists bool, opts ...InsertOption) error {
+func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, enforceNotExists bool, gate execGate, opts ...InsertOption) error {
 	// Pre-change hooks
 	err := t.runPreHooks(ctx, instance)
 	if err != nil {
@@ -72,27 +73,33 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, e
 		isLWT = isLWT || opt.isPrecondition()
 	}
 
-	st := time.Now()
-	retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
-	defer cancel()
-
 	stmt, params := query.ToCql()
 
 	var applied bool
-	q := t.Session.ContextQuery(retryCtx, stmt, params).
+	q := t.Session.ContextQuery(ctx, stmt, params).
 		Consistency(t.writeConsistency).
 		BindStruct(instance)
 
-	queryString := q.String()
-
-	t.Logger.Debug("insert", zap.String("query", queryString))
+	t.Logger.Debug("insert", zap.Stringer("query", q))
 	defer q.Release()
+
+	// The query timeout starts once we hold an execution slot, so queueing behind
+	// other executions doesn't erode the budget for our own round-trips.
+	if errGate := gate.enter(ctx); errGate != nil {
+		return errGate
+	}
+	defer gate.exit()
+
+	st := time.Now()
+	retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
+	defer cancel()
+	q = q.WithContext(retryCtx)
 
 	for {
 		if isLWT {
 			applied, err = q.ExecCAS()
 			if !applied {
-				t.Logger.Debug("inserted no rows", zap.String("query", queryString))
+				t.Logger.Debug("inserted no rows", zap.Stringer("query", q))
 			}
 		} else {
 			err = q.Exec()

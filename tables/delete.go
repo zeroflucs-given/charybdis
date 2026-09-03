@@ -41,8 +41,7 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 			Consistency(t.writeConsistency).
 			BindStruct(instance)
 
-		queryString := q.String()
-		t.Logger.Debug("delete using struct binding", zap.String("query", queryString))
+		t.Logger.Debug("delete using struct binding", zap.Stringer("query", q))
 
 		defer q.Release()
 
@@ -53,10 +52,10 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 		logger := t.Logger.
 			With(
 				zap.String("operation", "delete"),
-				zap.String("query", queryString),
 				zap.Duration("timeout", t.queryTimeout),
 			).
 			WithLazy(
+				zap.Stringer("query", q),
 				zap.Stringer("execution_time_to_now", timeRemaining),
 			)
 
@@ -86,7 +85,7 @@ func (t *tableManagerImpl[T]) Truncate(ctx context.Context) error {
 			WithContext(ctx).
 			Consistency(t.writeConsistency)
 		defer query.Release()
-		t.Logger.Debug("truncate", zap.String("operation", "truncate"), zap.String("query", query.String()))
+		t.Logger.Debug("truncate", zap.String("operation", "truncate"), zap.Stringer("query", query))
 		return query.Exec()
 	})
 }
@@ -134,8 +133,7 @@ func (t *tableManagerImpl[T]) deleteInternal(ctx context.Context, opts ...Delete
 	}
 	query = query.Bind(bindings...)
 
-	queryString := query.String()
-	t.Logger.Debug("delete using options", zap.String("query", queryString))
+	t.Logger.Debug("delete using options", zap.Stringer("query", query))
 
 	defer query.Release()
 
@@ -146,10 +144,10 @@ func (t *tableManagerImpl[T]) deleteInternal(ctx context.Context, opts ...Delete
 	logger := t.Logger.
 		With(
 			zap.String("operation", "delete"),
-			zap.String("query", queryString),
 			zap.Duration("timeout", t.queryTimeout),
 		).
 		WithLazy(
+			zap.Stringer("query", query),
 			zap.Stringer("execution_time_to_now", timeRemaining),
 		)
 

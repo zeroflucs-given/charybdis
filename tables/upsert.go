@@ -15,25 +15,26 @@ import (
 // Upsert overwrites or inserts an object.
 func (t *tableManagerImpl[T]) Upsert(ctx context.Context, instance *T, opts ...UpsertOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name+"/Upsert", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
-		return t.upsertInternal(ctx, instance, opts...)
+		return t.upsertInternal(ctx, instance, nil, opts...)
 	})
 }
 
 // UpsertBulk upserts many objects in parallel, up to a given number. If the concurrency limit is not set,
-// then a default of DefaultBulkConcurrency is used.
+// then a default of DefaultBulkConcurrency is used. The limit applies to statement executions only;
+// preparation work (hooks, query building, binding) runs in parallel across all instances.
 func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, concurrency int, opts ...UpsertOption) error {
 	if concurrency <= 0 {
 		concurrency = DefaultBulkConcurrency
 	}
 
 	return doWithTracing(ctx, t.Tracer, t.Name+"/UpsertBulk", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
+		gate := make(execGate, concurrency)
 		grp, grpCtx := errgroup.WithContext(ctx)
-		grp.SetLimit(concurrency)
 
 		for _, v := range instances {
 			item := v
 			grp.Go(func() error {
-				return t.upsertInternal(grpCtx, item, opts...)
+				return t.upsertInternal(grpCtx, item, gate, opts...)
 			})
 		}
 
@@ -42,7 +43,7 @@ func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, co
 }
 
 // upsertInternal is a helper function that performs a single upsert
-func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, opts ...UpsertOption) error {
+func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, gate execGate, opts ...UpsertOption) error {
 	// Pre-change hooks
 	errPre := t.runPreHooks(ctx, instance)
 	if errPre != nil {
@@ -61,16 +62,23 @@ func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, o
 		maps.Copy(additionalVals, opt.getMapData())
 	}
 
-	st := time.Now()
-	retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
-	defer cancel()
-
-	query := builder.QueryContext(retryCtx, t.Session).
+	query := builder.QueryContext(ctx, t.Session).
 		BindStructMap(instance, additionalVals)
 
 	defer query.Release()
-	queryString := query.String()
-	t.Logger.Debug("upsert by primary key", zap.String("query", queryString))
+	t.Logger.Debug("upsert by primary key", zap.Stringer("query", query))
+
+	// The query timeout starts once we hold an execution slot, so queueing behind
+	// other executions doesn't erode the budget for our own round-trips.
+	if errGate := gate.enter(ctx); errGate != nil {
+		return errGate
+	}
+	defer gate.exit()
+
+	st := time.Now()
+	retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
+	defer cancel()
+	query = query.WithContext(retryCtx)
 
 	for {
 		err := query.Exec()
