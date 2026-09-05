@@ -17,7 +17,7 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 		return nil // nothing to delete
 	}
 
-	return doWithTracing(ctx, t.Tracer, t.Name+"/DeleteByObject", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name, "DeleteByObject", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		// Pre-delete hooks
 		if len(t.preDeleteHooks) > 0 {
 			existing, err := t.GetByExample(ctx, instance)
@@ -65,21 +65,21 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 
 // DeleteByPrimaryKey removes a single row by primary key
 func (t *tableManagerImpl[T]) DeleteByPrimaryKey(ctx context.Context, keys ...any) error {
-	return doWithTracing(ctx, t.Tracer, t.Name+"/DeleteByPrimaryKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name, "DeleteByPrimaryKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.deleteInternal(ctx, WithDeletePredicates(t.Table.PrimaryKeyCmp()[:len(keys)]...), WithDeletionBindings(keys...))
 	})
 }
 
 // DeleteUsingOptions removes rows/columns specified with the supplied options
 func (t *tableManagerImpl[T]) DeleteUsingOptions(ctx context.Context, opts ...DeleteOption) error {
-	return doWithTracing(ctx, t.Tracer, t.Name+"/DeleteUsingOptions", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name, "DeleteUsingOptions", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.deleteInternal(ctx, opts...)
 	})
 }
 
 // Truncate the table, leaving it with no rows
 func (t *tableManagerImpl[T]) Truncate(ctx context.Context) error {
-	return doWithTracing(ctx, t.Tracer, t.Name+"/Truncate", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name, "Truncate", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		query := t.Session.
 			Query("TRUNCATE "+t.qualifiedTableName, nil).
 			WithContext(ctx).

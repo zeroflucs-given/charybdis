@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"sync/atomic"
 	"time"
 
 	"github.com/gocql/gocql"
+	"github.com/scylladb/gocqlx/v3"
 	"github.com/scylladb/gocqlx/v3/qb"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -14,27 +16,37 @@ import (
 
 // Upsert overwrites or inserts an object.
 func (t *tableManagerImpl[T]) Upsert(ctx context.Context, instance *T, opts ...UpsertOption) error {
-	return doWithTracing(ctx, t.Tracer, t.Name+"/Upsert", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name, "Upsert", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.upsertInternal(ctx, instance, nil, opts...)
 	})
 }
 
 // UpsertBulk upserts many objects in parallel, up to a given number. If the concurrency limit is not set,
 // then a default of DefaultBulkConcurrency is used. The limit applies to statement executions only;
-// preparation work (hooks, query building, binding) runs in parallel across all instances.
+// preparation work (hooks, query building, binding) runs ahead on a bounded pool of workers.
 func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, concurrency int, opts ...UpsertOption) error {
 	if concurrency <= 0 {
 		concurrency = DefaultBulkConcurrency
 	}
 
-	return doWithTracing(ctx, t.Tracer, t.Name+"/UpsertBulk", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name, "UpsertBulk", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		gate := make(execGate, concurrency)
 		grp, grpCtx := errgroup.WithContext(ctx)
 
-		for _, v := range instances {
-			item := v
+		// Twice the gate size keeps preparation ahead of execution without a goroutine per instance
+		var next atomic.Int64
+		workers := min(len(instances), concurrency*2)
+		for w := 0; w < workers; w++ {
 			grp.Go(func() error {
-				return t.upsertInternal(grpCtx, item, gate, opts...)
+				for {
+					i := int(next.Add(1)) - 1
+					if i >= len(instances) || grpCtx.Err() != nil {
+						return nil
+					}
+					if err := t.upsertInternal(grpCtx, instances[i], gate, opts...); err != nil {
+						return err
+					}
+				}
 			})
 		}
 
@@ -50,20 +62,26 @@ func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, g
 		return errPre
 	}
 
-	// Build our builder
-	builder := qb.Update(t.qualifiedTableName).
-		Set(t.nonKeyColumns...).
-		Where(t.allKeyPredicates...)
+	var query *gocqlx.Queryx
+	if len(opts) == 0 {
+		query = t.Session.Query(t.upsertStmt, t.upsertNames).
+			WithContext(ctx).
+			BindStruct(instance)
+	} else {
+		builder := qb.Update(t.qualifiedTableName).
+			Set(t.nonKeyColumns...).
+			Where(t.allKeyPredicates...)
 
-	additionalVals := map[string]any{}
+		additionalVals := map[string]any{}
 
-	for _, opt := range opts {
-		builder = opt.applyToUpdateBuilder(builder)
-		maps.Copy(additionalVals, opt.getMapData())
+		for _, opt := range opts {
+			builder = opt.applyToUpdateBuilder(builder)
+			maps.Copy(additionalVals, opt.getMapData())
+		}
+
+		query = builder.QueryContext(ctx, t.Session).
+			BindStructMap(instance, additionalVals)
 	}
-
-	query := builder.QueryContext(ctx, t.Session).
-		BindStructMap(instance, additionalVals)
 
 	defer query.Release()
 	t.Logger.Debug("upsert by primary key", zap.Stringer("query", query))

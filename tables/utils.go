@@ -11,13 +11,14 @@ import (
 )
 
 // doWithTracing is a wrapper function that adds tracing, error handling and some other elements.
-func doWithTracing(ctx context.Context, tracer trace.Tracer, spanName string, traceAttributes []attribute.KeyValue, doTracing bool, execute func(context.Context) error) error {
+// The span name is only materialised when tracing is enabled, keeping untraced calls allocation-free.
+func doWithTracing(ctx context.Context, tracer trace.Tracer, objectName string, operation string, traceAttributes []attribute.KeyValue, doTracing bool, execute func(context.Context) error) error {
 	tracedCtx := ctx
 	var span trace.Span
 
 	if doTracing {
 		// Perform tracing
-		tracedCtx, span = tracer.Start(ctx, spanName)
+		tracedCtx, span = tracer.Start(ctx, objectName+"/"+operation)
 		span.SetAttributes(traceAttributes...)
 		defer span.End()
 	}
@@ -40,14 +41,15 @@ func doWithTracing(ctx context.Context, tracer trace.Tracer, spanName string, tr
 }
 
 // returnWithTracing is a wrapper function that adds tracing, error handling and some other elements.
-func returnWithTracing[TResult any](ctx context.Context, tracer trace.Tracer, spanName string, traceAttributes []attribute.KeyValue, doTracing bool, execute func(context.Context) (TResult, error)) (TResult, error) {
+// The span name is only materialised when tracing is enabled, keeping untraced calls allocation-free.
+func returnWithTracing[TResult any](ctx context.Context, tracer trace.Tracer, objectName string, operation string, traceAttributes []attribute.KeyValue, doTracing bool, execute func(context.Context) (TResult, error)) (TResult, error) {
 	var dflt TResult
 	tracedCtx := ctx
 	var span trace.Span
 
 	if doTracing {
 		// Perform tracing
-		tracedCtx, span = tracer.Start(ctx, spanName)
+		tracedCtx, span = tracer.Start(ctx, objectName+"/"+operation)
 		span.SetAttributes(traceAttributes...)
 		defer span.End()
 	}

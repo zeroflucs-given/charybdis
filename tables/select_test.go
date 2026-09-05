@@ -235,7 +235,7 @@ func TestSelectByIndexedColumn(t *testing.T) {
 
 	// Assert
 	require.NoError(t, errSelect, "Should not error selecting")
-	require.Equal(t, 900, recordCount, "Should have right number of records.")
+	require.Equal(t, orders, recordCount, "Should see one record per order, delivered exactly once.")
 }
 
 // TestSelectWithSortOrder checks we can get values sorted by their indexed columns

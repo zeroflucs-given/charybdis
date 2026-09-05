@@ -13,7 +13,7 @@ import (
 
 // Update updates an object. It will error if the object does not exist.
 func (t *tableManagerImpl[T]) Update(ctx context.Context, instance *T, opts ...UpdateOption) error {
-	return doWithTracing(ctx, t.Tracer, t.Name+"/Update", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
+	return doWithTracing(ctx, t.Tracer, t.Name, "Update", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
 		return t.updateInternal(ctx, instance, opts...)
 	})
 }
@@ -26,26 +26,35 @@ func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, o
 		return err
 	}
 
-	// Build our query
-	query := qb.Update(t.qualifiedTableName).
-		Set(t.nonKeyColumns...).
-		Where(t.allKeyPredicates...)
+	var stmt string
+	var params []string
+	var additionalVals map[string]any
 
-	additionalVals := map[string]any{}
-	havePreconditions := false
+	if len(opts) == 0 {
+		stmt, params = t.updateStmt, t.updateNames
+	} else {
+		query := qb.Update(t.qualifiedTableName).
+			Set(t.nonKeyColumns...).
+			Where(t.allKeyPredicates...)
 
-	for _, opt := range opts {
-		if opt.isPrecondition() {
-			havePreconditions = true
+		additionalVals = map[string]any{}
+		havePreconditions := false
+
+		for _, opt := range opts {
+			if opt.isPrecondition() {
+				havePreconditions = true
+			}
+			query = opt.applyToUpdateBuilder(query)
+			maps.Copy(additionalVals, opt.getMapData())
 		}
-		query = opt.applyToUpdateBuilder(query)
-		maps.Copy(additionalVals, opt.getMapData())
-	}
 
-	// If we have no other preconditions, add an IF EXISTS check
-	if !havePreconditions {
-		query = query.
-			Existing()
+		// If we have no other preconditions, add an IF EXISTS check
+		if !havePreconditions {
+			query = query.
+				Existing()
+		}
+
+		stmt, params = query.ToCql()
 	}
 
 	st := time.Now()
@@ -53,7 +62,6 @@ func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, o
 	defer cancel()
 
 	var applied bool
-	stmt, params := query.ToCql()
 	for {
 		applied, err = t.Session.
 			ContextQuery(retryCtx, stmt, params).

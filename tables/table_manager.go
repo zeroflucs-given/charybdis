@@ -66,7 +66,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 
 	table := params.TableSpec.ToCQLX()
 
-	return &tableManagerImpl[T]{
+	mgr := &tableManagerImpl[T]{
 		baseManagerImpl: baseManagerImpl[T]{
 			// Base objects
 			Logger: params.Logger.With(
@@ -103,7 +103,27 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 
 		tableSpec:        params.TableSpec,
 		writeConsistency: params.WriteConsistency,
-	}, nil
+	}
+
+	mgr.precomputeStatements()
+	mgr.upsertStmt, mgr.upsertNames = qb.Update(mgr.qualifiedTableName).
+		Set(mgr.nonKeyColumns...).
+		Where(mgr.allKeyPredicates...).
+		ToCql()
+	mgr.updateStmt, mgr.updateNames = qb.Update(mgr.qualifiedTableName).
+		Set(mgr.nonKeyColumns...).
+		Where(mgr.allKeyPredicates...).
+		Existing().
+		ToCql()
+	mgr.insertStmt, mgr.insertNames = qb.Insert(mgr.qualifiedTableName).
+		Columns(mgr.allColumnNames...).
+		ToCql()
+	mgr.insertNotExistsStmt, mgr.insertNotExistsNames = qb.Insert(mgr.qualifiedTableName).
+		Columns(mgr.allColumnNames...).
+		Unique().
+		ToCql()
+
+	return mgr, nil
 }
 
 // tableManagerImpl is our underlying table manager implementation type. We make it private here
@@ -117,6 +137,16 @@ type tableManagerImpl[T any] struct {
 	preHooks         []ChangeHook[T]
 	postHooks        []ChangeHook[T]
 	writeConsistency gocql.Consistency // Write consistency
+
+	// Precomputed statements for option-free write paths
+	upsertStmt           string
+	upsertNames          []string
+	updateStmt           string
+	updateNames          []string
+	insertStmt           string
+	insertNames          []string
+	insertNotExistsStmt  string
+	insertNotExistsNames []string
 }
 
 // GetTableSpec gets the table specification we're using

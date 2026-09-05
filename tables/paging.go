@@ -19,9 +19,14 @@ func (t *baseManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder
 	var pageState []byte
 
 	for {
+		// The initial nil page state matters: gocql only disables automatic paging once a page
+		// state is applied, and without it the first iterator consumes every page and the loop
+		// re-delivers everything beyond page one. Options may then override it with a caller's
+		// resume state, and later iterations advance using the state from the previous page.
 		query := queryBuilder(ctx, t.Session).
 			Consistency(t.readConsistency).
-			PageSize(DefaultPageSize)
+			PageSize(DefaultPageSize).
+			PageState(nil)
 
 		// Apply query options that can override any of the above
 		for _, opt := range opts {
@@ -30,6 +35,7 @@ func (t *baseManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder
 			}
 			query = opt.applyToQuery(query)
 		}
+
 		if pageState != nil {
 			query = query.PageState(pageState)
 		}

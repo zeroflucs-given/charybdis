@@ -54,7 +54,7 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 
 	table := params.ViewSpec.ToCQLX()
 
-	return &viewManager[T]{
+	mgr := &viewManager[T]{
 		baseManagerImpl: baseManagerImpl[T]{
 			// Base objects
 			Logger: params.Logger.With(
@@ -85,7 +85,11 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 				}),
 			),
 		},
-	}, nil
+	}
+
+	mgr.precomputeStatements()
+
+	return mgr, nil
 }
 
 type viewManager[T any] struct {

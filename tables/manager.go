@@ -31,4 +31,17 @@ type baseManagerImpl[T any] struct {
 	partitionKeyPredicates []qb.Cmp          // Partition key predicates
 	allKeyPredicates       []qb.Cmp          // All key predicates, including partition key, in order
 	queryTimeout           time.Duration     // Timout for queries - copied through from the Session settings
+
+	// Precomputed statements for fixed-shape operations
+	getByPartitionStmt  string   // Select by partition key
+	getByPartitionNames []string // Binding names for getByPartitionStmt
+	getByPrimaryStmt    string   // Select by full primary key
+	getByPrimaryNames   []string // Binding names for getByPrimaryStmt
+}
+
+// precomputeStatements builds the statement text for operations whose shape never varies,
+// so per-call paths can skip the query-builder when no options are passed.
+func (t *baseManagerImpl[T]) precomputeStatements() {
+	t.getByPartitionStmt, t.getByPartitionNames = qb.Select(t.Table.Name()).Where(t.partitionKeyPredicates...).ToCql()
+	t.getByPrimaryStmt, t.getByPrimaryNames = qb.Select(t.Table.Name()).Where(t.allKeyPredicates...).ToCql()
 }
