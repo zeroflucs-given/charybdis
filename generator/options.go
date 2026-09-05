@@ -314,10 +314,16 @@ func DescribeTypeMetadata(sess gocqlx.Session, keyspace string, typeName string)
 // DescribeKeyspaceMetadata reads the schema of a keyspace from the database
 func DescribeKeyspaceMetadata(sess gocqlx.Session, keyspace string) (*gocql.KeyspaceMetadata, error) {
 	md, errDef := sess.KeyspaceMetadata(keyspace)
-	if errors.Is(errDef, gocql.ErrKeyspaceDoesNotExist) {
+	if errors.Is(errDef, gocql.ErrKeyspaceDoesNotExist) || isKeyspaceNotFound(errDef) {
 		return nil, nil
 	} else if errDef != nil {
 		return nil, fmt.Errorf("fetching keyspace metadata for '%s': %w", keyspace, errDef)
 	}
 	return md, nil
+}
+
+// isKeyspaceNotFound matches the driver's DESCRIBE-path missing-keyspace error, which is
+// string-flattened rather than wrapping gocql.ErrKeyspaceDoesNotExist
+func isKeyspaceNotFound(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "not found in keyspaces")
 }
