@@ -29,8 +29,8 @@ func (r *ringDescriber) setControlConn(c controlConnection) {
 }
 
 // Ask the control node for the local host info
-func (r *ringDescriber) getLocalHostInfo(conn ConnInterface) (*HostInfo, error) {
-	iter := conn.querySystem(context.TODO(), qrySystemLocal)
+func (r *ringDescriber) getLocalHostInfo(ctx context.Context, conn ConnInterface) (*HostInfo, error) {
+	iter := conn.querySystem(ctx, qrySystemLocal)
 
 	if iter == nil {
 		return nil, errNoControl
@@ -44,17 +44,20 @@ func (r *ringDescriber) getLocalHostInfo(conn ConnInterface) (*HostInfo, error) 
 }
 
 // Ask the control node for host info on all it's known peers
-func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo, c ConnInterface) ([]*HostInfo, error) {
+func (r *ringDescriber) getClusterPeerInfo(ctx context.Context, c ConnInterface) ([]*HostInfo, error) {
 	var iter *Iter
 	if c.getIsSchemaV2() {
-		iter = c.querySystem(context.TODO(), qrySystemPeersV2)
+		iter = c.querySystem(ctx, qrySystemPeersV2)
+	} else if c.isScyllaConn() {
+		iter = c.querySystem(ctx, qrySystemPeers)
 	} else {
-		iter = c.querySystem(context.TODO(), qrySystemPeers)
+		iter = c.querySystem(ctx, qrySystemPeersCassandra)
 	}
 
 	if iter == nil {
 		return nil, errNoControl
 	}
+	defer iter.Close()
 
 	rows, err := iter.SliceMap()
 	if err != nil {
@@ -65,7 +68,7 @@ func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo, c ConnInterface)
 	return getPeersFromQuerySystemPeers(rows, r.cfg.Port, r.logger)
 }
 
-func getPeersFromQuerySystemPeers(querySystemPeerRows []map[string]interface{}, defaultPort int, logger StdLogger) ([]*HostInfo, error) {
+func getPeersFromQuerySystemPeers(querySystemPeerRows []map[string]any, defaultPort int, logger StdLogger) ([]*HostInfo, error) {
 	var peers []*HostInfo
 
 	for _, row := range querySystemPeerRows {
@@ -91,7 +94,7 @@ func getPeersFromQuerySystemPeers(querySystemPeerRows []map[string]interface{}, 
 // Return true if the host is a valid peer
 func isValidPeer(host *HostInfo) bool {
 	return !(len(host.RPCAddress()) == 0 ||
-		host.hostId == "" ||
+		host.hostId.IsEmpty() ||
 		host.dataCenter == "" ||
 		host.rack == "")
 }
@@ -110,14 +113,47 @@ func (r *ringDescriber) GetHostsFromSystem() ([]*HostInfo, string, error) {
 	}
 
 	ch := r.control.getConn()
-	localHost, err := r.getLocalHostInfo(ch.conn)
-	if err != nil {
-		return r.prevHosts, r.prevPartitioner, err
+
+	var (
+		localHost *HostInfo
+		peerHosts []*HostInfo
+		wg        sync.WaitGroup
+		errMu     sync.Mutex
+		firstErr  error
+	)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	recordErr := func(err error) {
+		if err == nil {
+			return
+		}
+		errMu.Lock()
+		defer errMu.Unlock()
+		if firstErr == nil {
+			firstErr = err
+			cancel()
+		}
 	}
 
-	peerHosts, err := r.getClusterPeerInfo(localHost, ch.conn)
-	if err != nil {
-		return r.prevHosts, r.prevPartitioner, err
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		var localErr error
+		localHost, localErr = r.getLocalHostInfo(ctx, ch.conn)
+		recordErr(localErr)
+	}()
+	go func() {
+		defer wg.Done()
+		var peerErr error
+		peerHosts, peerErr = r.getClusterPeerInfo(ctx, ch.conn)
+		recordErr(peerErr)
+	}()
+	wg.Wait()
+
+	if firstErr != nil {
+		return r.prevHosts, r.prevPartitioner, firstErr
 	}
 
 	var hosts []*HostInfo

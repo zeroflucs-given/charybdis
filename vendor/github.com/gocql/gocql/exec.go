@@ -17,13 +17,13 @@ type SingleHostQueryExecutor struct {
 }
 
 // Exec executes the query without returning any rows.
-func (e SingleHostQueryExecutor) Exec(stmt string, values ...interface{}) error {
+func (e SingleHostQueryExecutor) Exec(stmt string, values ...any) error {
 	return e.control.query(stmt, values...).Close()
 }
 
 // Iter executes the query and returns an iterator capable of iterating
 // over all results.
-func (e SingleHostQueryExecutor) Iter(stmt string, values ...interface{}) *Iter {
+func (e SingleHostQueryExecutor) Iter(stmt string, values ...any) *Iter {
 	return e.control.query(stmt, values...)
 }
 
@@ -69,7 +69,10 @@ func NewSingleHostQueryExecutor(cfg *ClusterConfig) (e SingleHostQueryExecutor, 
 	}
 
 	var hosts []*HostInfo
-	if hosts, err = resolveInitialEndpoints(c.DNSResolver, c.Hosts, c.Port, c.Logger); err != nil {
+	// Use the port resolved by Validate() (stored in the session config) rather
+	// than the original c.Port which may still be 0 if the user did not set it
+	// explicitly.
+	if hosts, err = resolveInitialEndpoints(c.DNSResolver, c.Hosts, e.session.cfg.Port, c.Logger); err != nil {
 		err = fmt.Errorf("addrs to hosts: %w", err)
 		return
 	}
@@ -81,13 +84,12 @@ func NewSingleHostQueryExecutor(cfg *ClusterConfig) (e SingleHostQueryExecutor, 
 	// node.
 	hosts = shuffleHosts(hosts)
 
-	conncfg := *e.control.session.connCfg
-	conncfg.disableCoalesce = true
+	conncfg := e.session.controlConnConfig()
 
 	var conn *Conn
 
 	for _, host := range hosts {
-		conn, err = e.control.session.dial(e.control.session.ctx, host, &conncfg, e.control)
+		conn, err = e.control.session.dial(e.control.session.ctx, host, conncfg, e.control)
 		if err != nil {
 			e.control.session.logger.Printf("gocql: unable to dial control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
 			continue

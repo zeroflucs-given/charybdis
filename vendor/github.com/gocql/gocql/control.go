@@ -65,8 +65,8 @@ const (
 type controlConnection interface {
 	getConn() *connHost
 	awaitSchemaAgreement() error
-	query(statement string, values ...interface{}) (iter *Iter)
-	querySystem(statement string, values ...interface{}) (iter *Iter)
+	query(statement string, values ...any) (iter *Iter)
+	querySystem(statement string, values ...any) (iter *Iter)
 	discoverProtocol(hosts []*HostInfo) (int, error)
 	connect(hosts []*HostInfo) error
 	close()
@@ -74,10 +74,8 @@ type controlConnection interface {
 	reconnect() error
 }
 
-// Ensure that the atomic variable is aligned to a 64bit boundary
-// so that atomic operations can be applied on 32bit architectures.
 type controlConn struct {
-	conn         atomic.Value
+	conn         atomic.Pointer[connHost]
 	retry        RetryPolicy
 	session      *Session
 	quit         chan struct{}
@@ -96,8 +94,6 @@ func createControlConn(session *Session) *controlConn {
 		quit:    make(chan struct{}),
 		retry:   &SimpleRetryPolicy{NumRetries: 3},
 	}
-
-	control.conn.Store((*connHost)(nil))
 
 	return control
 }
@@ -268,6 +264,25 @@ func (c *controlConn) discoverProtocol(hosts []*HostInfo) (int, error) {
 	return 0, err
 }
 
+// controlConnConfig returns the connection config used for control connections.
+// It is the only place where control-connection specific settings are applied,
+// so that every path which (re)establishes the control connection agrees on them.
+//
+// It is declared here, rather than alongside the rest of Session, so it sits
+// next to the paths whose agreement it exists to guarantee.
+//
+// controlConn.discoverProtocol is a deliberate exception: it hand-copies
+// *s.connCfg instead of going through here, because its throwaway probe
+// connections are discarded immediately and must not be marked as the control
+// connection - doing so would race the real control connection and report
+// DRIVER_CONFIG more than once.
+func (s *Session) controlConnConfig() *ConnConfig {
+	cfg := *s.connCfg
+	cfg.disableCoalesce = true
+	cfg.isControlConn = true
+	return &cfg
+}
+
 func (c *controlConn) connect(hosts []*HostInfo) error {
 	if len(hosts) == 0 {
 		return errors.New("control: no endpoints specified")
@@ -277,13 +292,12 @@ func (c *controlConn) connect(hosts []*HostInfo) error {
 	// node.
 	hosts = shuffleHosts(hosts)
 
-	cfg := *c.session.connCfg
-	cfg.disableCoalesce = true
+	cfg := c.session.controlConnConfig()
 
 	var conn *Conn
 	var err error
 	for _, host := range hosts {
-		conn, err = c.session.dial(c.session.ctx, host, &cfg, c)
+		conn, err = c.session.dial(c.session.ctx, host, cfg, c)
 		// conn.finalizeConnection() to be called outside of this function, since initialization process is not completed yet
 		if err != nil {
 			c.session.logger.Printf("gocql: unable to dial control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
@@ -334,7 +348,7 @@ func (c *controlConn) setupConn(conn *Conn) error {
 		conn: conn,
 		host: host,
 	}
-	old, _ := c.conn.Swap(ch).(*connHost)
+	old := c.conn.Swap(ch)
 	var oldHost events.HostInfo
 	if old != nil && old.host != nil {
 		oldHost.HostID = old.host.HostID()
@@ -388,6 +402,7 @@ func (c *controlConn) registerEvents(conn *Conn) error {
 	if err != nil {
 		return err
 	}
+	defer framer.Release()
 
 	frame, err := framer.parseFrame()
 	if err != nil {
@@ -462,8 +477,9 @@ func (c *controlConn) attemptReconnect() error {
 }
 
 func (c *controlConn) attemptReconnectToAnyOfHosts(hosts []*HostInfo) error {
+	cfg := c.session.controlConnConfig()
 	for _, host := range hosts {
-		conn, err := c.session.connect(c.session.ctx, host, c)
+		conn, err := c.session.dial(c.session.ctx, host, cfg, c)
 		if err != nil {
 			if c.session.cfg.ConvictionPolicy.AddFailure(err, host) {
 				c.session.handleNodeDown(host.ConnectAddress(), host.Port())
@@ -507,9 +523,18 @@ func (c *controlConn) HandleError(conn *Conn, err error, closed bool) {
 }
 
 func (c *controlConn) getConn() *connHost {
-	return c.conn.Load().(*connHost)
+	return c.conn.Load()
 }
 
+// writeFrame sends frame w on the control connection and returns the parsed
+// response frame.
+//
+// NOTE: The returned frame must not retain any byte-slice references to the
+// framer's read buffer, because the framer is released back to the pool
+// immediately after parseFrame returns (via defer). Frame types that use
+// readBytesCopy (e.g. SupportedFrame, AuthChallengeFrame, AuthSuccessFrame)
+// are safe; frame types that use readBytes and expose []byte fields would not
+// be safe and must not be returned from this function.
 func (c *controlConn) writeFrame(w frameBuilder) (frame, error) {
 	ch := c.getConn()
 	if ch == nil {
@@ -520,22 +545,24 @@ func (c *controlConn) writeFrame(w frameBuilder) (frame, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer framer.Release()
 
 	return framer.parseFrame()
 }
 
 // query will return nil if the connection is closed or nil
-func (c *controlConn) querySystem(statement string, values ...interface{}) (iter *Iter) {
+func (c *controlConn) querySystem(statement string, values ...any) (iter *Iter) {
 	conn := c.getConn().conn.(*Conn)
-	return c.runQuery(c.session.Query(statement+conn.usingTimeoutClause, values...).
+	stmt, timeout := conn.systemRequestStatement(statement)
+	return c.runQuery(c.session.Query(stmt, values...).
 		Consistency(One).
-		SetRequestTimeout(conn.systemRequestTimeout).
+		SetRequestTimeout(timeout).
 		RoutingKey([]byte{}).
 		Trace(nil))
 }
 
 // query will return nil if the connection is closed or nil
-func (c *controlConn) query(statement string, values ...interface{}) (iter *Iter) {
+func (c *controlConn) query(statement string, values ...any) (iter *Iter) {
 	return c.runQuery(c.session.Query(statement, values...).Consistency(One).RoutingKey([]byte{}).Trace(nil))
 }
 
@@ -554,6 +581,7 @@ func (c *controlConn) runQuery(qry *Query) (iter *Iter) {
 		if iter.err == nil || !c.retry.Attempt(qry) {
 			break
 		}
+		iter.finalize(true)
 	}
 
 	return

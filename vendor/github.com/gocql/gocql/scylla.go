@@ -9,6 +9,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -51,10 +52,14 @@ type ScyllaHostFeatures struct {
 	// https://github.com/scylladb/scylladb/issues/20860
 	// https://github.com/scylladb/scylladb/pull/23292
 	isMetadataIDSupported bool
+	// True when the node is identified as ScyllaDB; stays true even when
+	// shard awareness is disabled on the server.
+	isScylla bool
 }
 
+// IsPresent reports whether the host is a ScyllaDB node.
 func (f ScyllaHostFeatures) IsPresent() bool {
-	return f.nrShards != 0
+	return f.isScylla
 }
 
 func (f ScyllaHostFeatures) Partitioner() string {
@@ -117,6 +122,7 @@ const (
 	lwtAddMetadataMarkKey = "SCYLLA_LWT_ADD_METADATA_MARK"
 	rateLimitError        = "SCYLLA_RATE_LIMIT_ERROR"
 	tabletsRoutingV1      = "TABLETS_ROUTING_V1"
+	scyllaUseMetadataID   = "SCYLLA_USE_METADATA_ID"
 )
 
 // "tabletsRoutingV1" CQL Protocol Extension.
@@ -251,6 +257,45 @@ func (ext *lwtAddMetadataMarkExt) name() string {
 	return lwtAddMetadataMarkKey
 }
 
+// "SCYLLA_USE_METADATA_ID" CQL Protocol Extension.
+// Enables storing and updating metadata IDs for prepared statements, similar to CQL v5.
+// When negotiated, the driver tracks metadata changes and updates cached metadata accordingly.
+type scyllaUseMetadataIDExt struct {
+}
+
+var _ cqlProtocolExtension = &scyllaUseMetadataIDExt{}
+
+// newScyllaUseMetadataIDExt returns the extension only for a protocol v4 connection,
+// which is the whole of what the extension is: a backport of the v5 result metadata
+// id to v4. Version matters because opting in changes the wire format — EXECUTE
+// carries a [short bytes] result metadata id and RESULT/Prepared answers with one
+// (see writeExecuteFrame and parseResultPrepared) — so on v3, where that field is not
+// defined, the opt-in would desynchronise a connection the driver otherwise supports
+// (newFramer accepts v3, and a non-zero ClusterConfig.ProtoVersion skips
+// discoverProtocol). On v5 the field is already mandatory and Conn.tracksResultMetadataID
+// is true without the extension, so asking for it again would be redundant.
+func newScyllaUseMetadataIDExt(supported map[string][]string, version byte) *scyllaUseMetadataIDExt {
+	if version&protoVersionMask != protoVersion4 {
+		return nil
+	}
+	if _, found := supported[scyllaUseMetadataID]; found {
+		return &scyllaUseMetadataIDExt{}
+	}
+	return nil
+}
+
+// name implements cqlProtocolExtension.
+func (ext *scyllaUseMetadataIDExt) name() string {
+	return scyllaUseMetadataID
+}
+
+// serialize implements cqlProtocolExtension.
+func (ext *scyllaUseMetadataIDExt) serialize() map[string]string {
+	return map[string]string{
+		scyllaUseMetadataID: "",
+	}
+}
+
 func parseSupported(supported map[string][]string, logger StdLogger) ScyllaConnectionFeatures {
 	const (
 		scyllaShard             = "SCYLLA_SHARD"
@@ -260,7 +305,6 @@ func parseSupported(supported map[string][]string, logger StdLogger) ScyllaConne
 		scyllaShardingIgnoreMSB = "SCYLLA_SHARDING_IGNORE_MSB"
 		scyllaShardAwarePort    = "SCYLLA_SHARD_AWARE_PORT"
 		scyllaShardAwarePortSSL = "SCYLLA_SHARD_AWARE_PORT_SSL"
-		scyllaUseMetadataID     = "SCYLLA_USE_METADATA_ID"
 	)
 
 	var (
@@ -327,18 +371,31 @@ func parseSupported(supported map[string][]string, logger StdLogger) ScyllaConne
 		si.isMetadataIDSupported = true
 	}
 
+	_, hasLWT := supported[lwtAddMetadataMarkKey]
+	_, hasRateLimit := supported[rateLimitError]
+	si.isScylla = hasLWT || hasRateLimit || si.isMetadataIDSupported || si.nrShards != 0
+
 	if si.partitioner != "org.apache.cassandra.dht.Murmur3Partitioner" || si.shardingAlgorithm != "biased-token-round-robin" || si.nrShards == 0 || si.msbIgnore == 0 {
 		if debug.Enabled {
 			logger.Printf("scylla: unsupported sharding configuration, partitioner=%s, algorithm=%s, no_shards=%d, msb_ignore=%d",
 				si.partitioner, si.shardingAlgorithm, si.nrShards, si.msbIgnore)
 		}
-		return ScyllaConnectionFeatures{}
+		// Clear shard-routing fields only; host-wide features are preserved.
+		si.shard = 0
+		si.nrShards = 0
+		si.msbIgnore = 0
+		si.shardingAlgorithm = ""
 	}
 
 	return si
 }
 
-func parseCQLProtocolExtensions(supported map[string][]string, logger StdLogger) []cqlProtocolExtension {
+// parseCQLProtocolExtensions turns the server's SUPPORTED multimap into the
+// extensions this connection will opt into. version is the connection's protocol
+// version: an extension whose wire effect is version-specific is gated on it here,
+// which is the single point that feeds both the STARTUP opt-in (startupCoordinator.startup)
+// and the framer config (connFramers.initCache), so the two cannot disagree.
+func parseCQLProtocolExtensions(supported map[string][]string, version byte, logger StdLogger) []cqlProtocolExtension {
 	exts := []cqlProtocolExtension{}
 
 	lwtExt := newLwtAddMetaMarkExt(supported, logger)
@@ -356,12 +413,17 @@ func parseCQLProtocolExtensions(supported map[string][]string, logger StdLogger)
 		exts = append(exts, tabletsExt)
 	}
 
+	metadataIDExt := newScyllaUseMetadataIDExt(supported, version)
+	if metadataIDExt != nil {
+		exts = append(exts, metadataIDExt)
+	}
+
 	return exts
 }
 
-// isScyllaConn checks if conn is suitable for scyllaConnPicker.
+// isScyllaConn checks if conn is connected to a ScyllaDB node.
 func (c *Conn) isScyllaConn() bool {
-	return c.getScyllaSupported().nrShards != 0
+	return c.getScyllaSupported().IsPresent()
 }
 
 // scyllaConnPicker is a specialised ConnPicker that selects connections based
@@ -379,18 +441,19 @@ func (c *Conn) isScyllaConn() bool {
 type scyllaConnPicker struct {
 	logger StdLogger
 	// disableShardAwarePortUntil is used to temporarily disable new connections to the shard-aware port temporarily
-	disableShardAwarePortUntil *atomic.Value
-	hostId                     string
+	disableShardAwarePortUntil *atomic.Pointer[time.Time]
 	address                    string
-	conns                      []*Conn
 	excessConns                []*Conn
+	conns                      []*Conn
+	mu                         sync.RWMutex
 	nrShards                   int
 	pos                        uint64
 	lastAttemptedShard         int
 	msbIgnore                  uint64
 	nrConns                    int
-	shardAwarePortDisabled     bool
 	excessConnsLimitRate       float32
+	hostId                     UUID
+	shardAwarePortDisabled     bool
 }
 
 func newScyllaConnPicker(conn *Conn, logger StdLogger) *scyllaConnPicker {
@@ -414,11 +477,14 @@ func newScyllaConnPicker(conn *Conn, logger StdLogger) *scyllaConnPicker {
 		logger:                 logger,
 		excessConnsLimitRate:   conn.session.cfg.MaxExcessShardConnectionsRate,
 
-		disableShardAwarePortUntil: new(atomic.Value),
+		disableShardAwarePortUntil: new(atomic.Pointer[time.Time]),
 	}
 }
 
 func (p *scyllaConnPicker) Pick(t Token, qry ExecutableQuery) *Conn {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	if len(p.conns) == 0 {
 		return nil
 	}
@@ -442,8 +508,8 @@ outer:
 		}
 
 		if qry != nil && conn.isTabletSupported() {
-			for _, replica := range conn.session.findTabletReplicasForToken(qry.Keyspace(), qry.Table(), int64(mmt)) {
-				if replica.HostID() == p.hostId {
+			for _, replica := range conn.session.findTabletReplicasUnsafeForToken(qry.Keyspace(), qry.Table(), int64(mmt)) {
+				if UUID(replica.HostUUIDValue()) == p.hostId {
 					idx = replica.ShardID()
 					break outer
 				}
@@ -524,6 +590,9 @@ func (p *scyllaConnPicker) Put(conn *Conn) error {
 		return errors.New("server reported that it has no shards")
 	}
 
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if nrShards != p.nrShards {
 		if debug.Enabled {
 			p.logger.Printf("scylla: %s shard count changed from %d to %d, rebuilding connection pool",
@@ -550,7 +619,7 @@ func (p *scyllaConnPicker) Put(conn *Conn) error {
 				scyllaShardAwarePortFallbackDuration,
 			)
 			until := time.Now().Add(scyllaShardAwarePortFallbackDuration)
-			p.disableShardAwarePortUntil.Store(until)
+			p.disableShardAwarePortUntil.Store(&until)
 
 			return fmt.Errorf("connection landed on %d shard that already has connection", shard)
 		} else {
@@ -568,7 +637,7 @@ func (p *scyllaConnPicker) Put(conn *Conn) error {
 	}
 
 	if p.shouldCloseExcessConns() {
-		p.closeExcessConns()
+		p.closeExcessConnsLocked()
 	}
 
 	return nil
@@ -622,14 +691,20 @@ func (p *scyllaConnPicker) shouldCloseExcessConns() bool {
 }
 
 func (p *scyllaConnPicker) GetConnectionCount() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	return p.nrConns
 }
 
 func (p *scyllaConnPicker) GetExcessConnectionCount() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	return len(p.excessConns)
 }
 
 func (p *scyllaConnPicker) GetShardCount() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	return p.nrShards
 }
 
@@ -648,6 +723,9 @@ func (p *scyllaConnPicker) Remove(conn *Conn) {
 		p.logger.Printf("scylla: %s remove shard %d connection", p.address, shard)
 	}
 
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if p.conns[shard] != nil {
 		p.conns[shard] = nil
 		p.nrConns--
@@ -655,6 +733,8 @@ func (p *scyllaConnPicker) Remove(conn *Conn) {
 }
 
 func (p *scyllaConnPicker) InFlight() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	result := 0
 	for _, conn := range p.conns {
 		if conn != nil {
@@ -665,33 +745,44 @@ func (p *scyllaConnPicker) InFlight() int {
 }
 
 func (p *scyllaConnPicker) Size() (int, int) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	return p.nrConns, p.nrShards - p.nrConns
 }
 
 func (p *scyllaConnPicker) Close() {
-	p.closeConns()
-	p.closeExcessConns()
-}
-
-func (p *scyllaConnPicker) closeConns() {
-	if len(p.conns) == 0 {
-		if debug.Enabled {
-			p.logger.Printf("scylla: %s no connections to close", p.address)
-		}
-		return
-	}
-
+	p.mu.Lock()
 	conns := p.conns
 	p.conns = nil
 	p.nrConns = 0
+	excessConns := p.excessConns
+	p.excessConns = nil
+	p.mu.Unlock()
 
-	if debug.Enabled {
-		p.logger.Printf("scylla: %s closing %d connections", p.address, len(conns))
+	// Close connections outside of the lock to avoid deadlocks when a
+	// connection close triggers HandleError. See scylladb/gocql#53.
+	if len(conns) > 0 {
+		if debug.Enabled {
+			p.logger.Printf("scylla: %s closing %d connections", p.address, len(conns))
+		}
+		go closeConns(conns...)
+	} else if debug.Enabled {
+		p.logger.Printf("scylla: %s no connections to close", p.address)
 	}
-	go closeConns(conns...)
+
+	if len(excessConns) > 0 {
+		if debug.Enabled {
+			p.logger.Printf("scylla: %s closing %d excess connections", p.address, len(excessConns))
+		}
+		go closeConns(excessConns...)
+	} else if debug.Enabled {
+		p.logger.Printf("scylla: %s no excess connections to close", p.address)
+	}
 }
 
-func (p *scyllaConnPicker) closeExcessConns() {
+// closeExcessConnsLocked closes excess connections. Must be called with p.mu held.
+// The actual connection closing happens asynchronously outside the lock.
+func (p *scyllaConnPicker) closeExcessConnsLocked() {
 	if len(p.excessConns) == 0 {
 		if debug.Enabled {
 			p.logger.Printf("scylla: %s no excess connections to close", p.address)
@@ -708,8 +799,8 @@ func (p *scyllaConnPicker) closeExcessConns() {
 	go closeConns(conns...)
 }
 
-// Closing must be done outside of hostConnPool lock. If holding a lock
-// a deadlock can occur when closing one of the connections returns error on close.
+// closeConns closes a list of connections. Must be called outside of any lock
+// to avoid deadlocks when a connection close triggers HandleError.
 // See scylladb/gocql#53.
 func closeConns(conns ...*Conn) {
 	for _, conn := range conns {
@@ -727,12 +818,14 @@ func (p *scyllaConnPicker) NextShard() (shardID, nrShards int) {
 		return 0, 0
 	}
 
-	disableUntil, _ := p.disableShardAwarePortUntil.Load().(time.Time)
-	if time.Now().Before(disableUntil) {
+	if disableUntil := p.disableShardAwarePortUntil.Load(); disableUntil != nil && time.Now().Before(*disableUntil) {
 		// There is suspicion that the shard-aware-port is not reachable
 		// or misconfigured, fall back to the non-shard-aware port
 		return 0, 0
 	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	// Find the shard without a connection
 	// It's important to start counting from 1 here because we want

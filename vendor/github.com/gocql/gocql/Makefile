@@ -10,6 +10,8 @@ CASSANDRA_VERSION ?= LATEST
 SCYLLA_VERSION ?= LATEST
 
 GOLANGCI_VERSION = 2.5.0
+GET_VERSION_VERSION = 0.4.5
+GET_VERSION_BIN = $(MAKEFILE_PATH)/bin/get-version
 
 TEST_CQL_PROTOCOL ?= 4
 TEST_COMPRESSOR ?= snappy
@@ -85,10 +87,10 @@ print-config:
 	@[[ -d "$(MAKEFILE_PATH)/bin" ]] || mkdir "$(MAKEFILE_PATH)/bin"
 
 .prepare-get-version: .prepare-bin
-	@if [[ ! -f "$(MAKEFILE_PATH)/bin/get-version" ]]; then
-		echo "bin/get-version is not found, installing it"
-		curl -sSLo /tmp/get-version.zip https://github.com/scylladb-actions/get-version/releases/download/v0.4.3/get-version_0.4.3_linux_amd64v3.zip
-		unzip /tmp/get-version.zip get-version -d "$(MAKEFILE_PATH)/bin" >/dev/null
+	@if [[ ! -x "${GET_VERSION_BIN}" ]] || [[ "$$("${GET_VERSION_BIN}" -version 2>/dev/null)" != "${GET_VERSION_VERSION}" ]]; then
+		echo "Installing get-version ${GET_VERSION_VERSION}"
+		curl -sSLo /tmp/get-version.zip https://github.com/scylladb-actions/get-version/releases/download/v${GET_VERSION_VERSION}/get-version_${GET_VERSION_VERSION}_linux_amd64v3.zip
+		unzip -o /tmp/get-version.zip get-version -d "$(MAKEFILE_PATH)/bin" >/dev/null
 	fi
 
 .prepare-environment-update-aio-max-nr:
@@ -205,6 +207,9 @@ cassandra-start: .prepare-pki .prepare-cassandra-ccm .prepare-java resolve-cassa
 	ccm remove ${CCM_CASSANDRA_CLUSTER_NAME} 2>/dev/null 1>&2 || true
 	ccm create ${CCM_CASSANDRA_CLUSTER_NAME} -i ${CCM_CASSANDRA_IP_PREFIX} -v "$${CASSANDRA_VERSION_RESOLVED}" -n3 -d --vnodes --jvm_arg="-Xmx256m -XX:NewSize=100m"
 	ccm updateconf ${CASSANDRA_CONFIG}
+	for conf_dir in ${CCM_CONFIG_DIR}/${CCM_CASSANDRA_CLUSTER_NAME}/node*/conf; do \
+		sed -i 's/^#MAX_HEAP_SIZE=.*/MAX_HEAP_SIZE="256M"/' "$$conf_dir/cassandra-env.sh"; \
+	done
 	ccm start --wait-for-binary-proto --wait-other-notice --verbose
 	ccm status
 	ccm node1 nodetool status
@@ -282,8 +287,8 @@ test-integration-cassandra: cassandra-start
 		echo "Cassandra version ${CASSANDRA_VERSION} was not resolved"
 		exit 1
 	fi
-	echo "go test -v ${TEST_OPTS} -tags \"${TEST_INTEGRATION_TAGS}\" -distribution cassandra -timeout=5m -runauth -gocql.timeout=60s -runssl -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$${CASSANDRA_VERSION_RESOLVED} -cluster=$$(ccm liveset) ./..."
-	go test -v ${TEST_OPTS} -tags "${TEST_INTEGRATION_TAGS}" -distribution cassandra -timeout=5m -runauth -gocql.timeout=60s -runssl -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$$(ccm node1 versionfrombuild) -cluster=$$(ccm liveset) ./...
+	echo "go test -v ${TEST_OPTS} -tags \"${TEST_INTEGRATION_TAGS}\" -distribution cassandra -timeout=10m -runauth -gocql.timeout=60s -runssl -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$${CASSANDRA_VERSION_RESOLVED} -cluster=$$(ccm liveset) ./..."
+	go test -v ${TEST_OPTS} -tags "${TEST_INTEGRATION_TAGS}" -distribution cassandra -timeout=10m -runauth -gocql.timeout=60s -runssl -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$$(ccm node1 versionfrombuild) -cluster=$$(ccm liveset) ./...
 
 test-integration-scylla: scylla-start
 	@echo "Run integration tests for proto ${TEST_CQL_PROTOCOL} on scylla ${SCYLLA_VERSION}"
@@ -302,37 +307,71 @@ test-integration-scylla: scylla-start
 	echo "go test -v ${TEST_OPTS} -tags \"${TEST_INTEGRATION_TAGS}\" -distribution scylla $${CLUSTER_SOCKET} -timeout=5m -gocql.timeout=60s -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$${SCYLLA_VERSION_RESOLVED} -cluster=$$(ccm liveset) ./..."
 	go test -v ${TEST_OPTS} -tags "${TEST_INTEGRATION_TAGS}" -distribution scylla $${CLUSTER_SOCKET} -timeout=5m -gocql.timeout=60s -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$${SCYLLA_VERSION_RESOLVED} -cluster=$$(ccm liveset) ./...
 
+# The lz4 compressor lives in a nested module (lz4/go.mod), so the root "./..."
+# pattern does not reach it — it has to be invoked explicitly with `go test -C`,
+# the same way check-go-mod-drift lists every module. Without that, the lz4
+# tests and benchmarks are green or red independently of CI.
 test-unit: .prepare-pki
 	@echo "Run unit tests"
 	go clean -testcache
+	go clean -C lz4 -testcache
 ifeq ($(shell if [[ -n "$${GITHUB_STEP_SUMMARY}" ]]; then echo "running-in-workflow"; else echo "running-in-shell"; fi), running-in-workflow)
 	echo "### Unit Test Results" >>$${GITHUB_STEP_SUMMARY}
 	echo '```' >>$${GITHUB_STEP_SUMMARY}
 	echo go test -tags unit -timeout=5m -race ./...
-	go test -tags unit -timeout=5m -race ./... | tee -a "$${GITHUB_STEP_SUMMARY}"; TEST_STATUS=$${PIPESTATUS[0]}; echo '```' >>"$${GITHUB_STEP_SUMMARY}"; exit "$${TEST_STATUS}"
+	TEST_STATUS=0
+	go test -tags unit -timeout=5m -race ./... | tee -a "$${GITHUB_STEP_SUMMARY}" || TEST_STATUS=$${PIPESTATUS[0]}
+	echo go test -C lz4 -tags unit -timeout=5m -race ./...
+	LZ4_TEST_STATUS=0
+	go test -C lz4 -tags unit -timeout=5m -race ./... | tee -a "$${GITHUB_STEP_SUMMARY}" || LZ4_TEST_STATUS=$${PIPESTATUS[0]}
+	echo '```' >>"$${GITHUB_STEP_SUMMARY}"
+	if (( TEST_STATUS != 0 )); then exit "$${TEST_STATUS}"; fi
+	exit "$${LZ4_TEST_STATUS}"
 else
 	go test -v -tags unit -timeout=5m -race ./...
+	go test -C lz4 -v -tags unit -timeout=5m -race ./...
 endif
+
+# The benchmarks are behind the `bench` build tag (and, in the root module, some
+# behind `unit`), so the tags have to be passed or `go test -bench` compiles and
+# runs almost nothing. `-run '^$$'` keeps this a benchmark-only run; the tests
+# themselves belong to test-unit.
+BENCH_OPTS = -tags "bench unit" -run '^$$' -bench=. -benchmem
 
 test-bench:
 	@echo "Run benchmark tests"
 ifeq ($(shell if [[ -n "$${GITHUB_STEP_SUMMARY}" ]]; then echo "running-in-workflow"; else echo "running-in-shell"; fi), running-in-workflow)
 	echo "### Benchmark Results" >>$${GITHUB_STEP_SUMMARY}
 	echo '```' >>"$${GITHUB_STEP_SUMMARY}"
-	echo go test -bench=. -benchmem ./...
-	go test -bench=. -benchmem ./... | tee -a >>"$${GITHUB_STEP_SUMMARY}"
+	echo go test ${BENCH_OPTS} ./...
+	go test ${BENCH_OPTS} ./... | tee -a >>"$${GITHUB_STEP_SUMMARY}"
+	echo go test -C lz4 ${BENCH_OPTS} ./...
+	go test -C lz4 ${BENCH_OPTS} ./... | tee -a >>"$${GITHUB_STEP_SUMMARY}"
 	echo '```' >>"$${GITHUB_STEP_SUMMARY}"
 else
-	go test -bench=. -benchmem ./...
+	go test ${BENCH_OPTS} ./...
+	go test -C lz4 ${BENCH_OPTS} ./...
 endif
 
-check: .prepare-golangci
+check-go-mod-drift:
+	@echo "Check Go module drift"
+	go mod tidy -diff
+	go mod tidy -C lz4 -diff
+	go mod tidy -C tests/bench -diff
+
+check: .prepare-golangci check-go-mod-drift
 	@echo "Build"
 	go build -tags all .
 	echo "Check linting"
 	${BIN_DIR}/golangci-lint run
 
-fix: .prepare-golangci
+fix-go-mod-drift:
+	@echo "Fix Go module drift"
+	go mod tidy
+	go mod tidy -C lz4
+	go mod tidy -C tests/bench
+
+fix: .prepare-golangci fix-go-mod-drift
 	@echo "Fix linting"
 	${BIN_DIR}/golangci-lint run --fix
 

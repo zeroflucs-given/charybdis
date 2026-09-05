@@ -32,6 +32,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -103,7 +104,7 @@ type ClusterConfig struct {
 	Compressor Compressor
 	// Default: nil
 	Authenticator Authenticator
-	actualSslOpts atomic.Value
+	actualSslOpts *atomic.Pointer[tls.Config]
 	// PoolConfig configures the underlying connection pool, allowing the
 	// configuration of host selection and connection selection policies.
 	PoolConfig PoolConfig
@@ -135,12 +136,18 @@ type ClusterConfig struct {
 	Keyspace string
 	// CQL version (default: 3.0.0)
 	CQLVersion string
-	// addresses for the initial connections. It is recommended to use the value set in
+	// Addresses for the initial connections. It is recommended to use the value set in
 	// the Cassandra config for broadcast_address or listen_address, an IP address not
 	// a domain name. This is because events from Cassandra will use the configured IP
 	// address, which is used to index connected hosts. If the domain name specified
 	// resolves to more than 1 IP address then the driver may connect multiple times to
 	// the same host, and will not mark the node being down or up from events.
+	//
+	// Each entry may optionally include a port in host:port format. When cfg.Port
+	// is 0 (not explicitly set) and ClientRoutesConfig is nil, the driver learns
+	// the port from these entries (see cfg.Port for details). When cfg.Port is
+	// set to a non-zero value, embedded ports in host strings are ignored for
+	// the purpose of peer discovery.
 	Hosts []string
 	// The time to wait for frames before flushing the frames connection to Cassandra.
 	// Can help reduce syscall overhead by making less calls to write. Set to 0 to
@@ -162,11 +169,12 @@ type ClusterConfig struct {
 	MaxWaitSchemaAgreement time.Duration
 	// ProtoVersion sets the version of the native protocol to use, this will
 	// enable features in the driver for specific protocol versions, generally this
-	// should be set to a known version (2,3,4) for the cluster being connected to.
+	// should be set to a supported version (3,4,5) for the cluster being connected to.
 	//
 	// If it is 0 or unset (the default) then the driver will attempt to discover the
-	// highest supported protocol for the cluster. In clusters with nodes of different
-	// versions the protocol selected is not defined (ie, it can be any of the supported in the cluster)
+	// highest supported protocol up to version 4. Protocol version 5 must currently
+	// be selected explicitly. In clusters with nodes of different versions the protocol
+	// selected is not defined (ie, it can be any of the supported in the cluster).
 	ProtoVersion int
 	// Maximum number of inflight requests allowed per connection.
 	// Default: 32768 for CQL v3 and newer
@@ -187,6 +195,17 @@ type ClusterConfig struct {
 	//    For that, see ConnectTimeout.
 	Timeout time.Duration
 	// The timeout for the requests to the schema tables. (default: 60s)
+	//
+	// Zero means the driver does not bound these queries itself: it arms no
+	// client-side deadline, and against ScyllaDB it sends them without the
+	// " USING TIMEOUT ...ms" override, so how long they may run is left to the
+	// server's own configuration - its request timeouts, or the service level in
+	// force. Nothing else on the driver side steps in: controlConn.runQuery, which
+	// every schema-table read goes through, passes a context with no deadline, and
+	// the connection's read deadline is disarmed while waiting for a response to
+	// begin. Schema agreement is the exception, bounding its own queries by
+	// MaxWaitSchemaAgreement. Set a positive value to keep these queries under a
+	// deadline of the client's choosing.
 	MetadataSchemaRequestTimeout time.Duration
 	// ConnectTimeout limits the time spent during connection setup.
 	// During initial connection setup, internal queries, AUTH requests will return an error if the client
@@ -197,7 +216,19 @@ type ClusterConfig struct {
 	// ConnectTimeout has a default value of 11 seconds.
 	ConnectTimeout time.Duration
 	// Port used when dialing.
-	// Default: 9042
+	//
+	// When left at 0 (the zero value, i.e. not explicitly set) and
+	// ClientRoutesConfig is nil, the driver attempts to learn the port from
+	// cfg.Hosts: if every host entry embeds the same port, that port is used;
+	// if no entry embeds a port, the default 9042 is used; any inconsistency
+	// (some entries have a port, some don't, or they differ) is an error.
+	//
+	// When set to a non-zero value the driver uses that port for all
+	// connections — including peer-discovered nodes — and never learns from
+	// cfg.Hosts. Set to 9042 explicitly if you want the default port and
+	// also want to prevent any learning from host strings.
+	//
+	// Default: 0 (auto-detect; effectively 9042 when no port is in Hosts)
 	Port int
 	// The size of the connection pool for each host.
 	// The pool filling runs in separate gourutine during the session initialization phase.
@@ -251,10 +282,36 @@ type ClusterConfig struct {
 	// the metadata to parse the rows and will not reuse the metadata from the prepared
 	// statement.
 	//
+	// This flag exists because prepared-statement result metadata could not be
+	// invalidated safely: after an ALTER the server kept answering with the old
+	// column set, so reusing the cached metadata could misdecode rows. It defaults
+	// to true for that reason.
+	//
+	// This flag is IGNORED — including when it was set to true explicitly — once the
+	// connection exchanges result metadata IDs and the driver holds one for the
+	// statement. That is the case on native protocol v5, and on protocol v4 once the
+	// SCYLLA_USE_METADATA_ID extension is negotiated. Either way the underlying
+	// problem is fixed: the server hands out a result metadata ID at prepare time,
+	// the driver returns it with every execute, and the server answers a stale ID
+	// with METADATA_CHANGED plus fresh metadata. Skipping is then safe, so the driver
+	// skips and this workaround no longer applies.
+	//
+	// This matches scylladb/scylla-drivers#81, which specifies skipping as the safe
+	// default "if SCYLLA_USE_METADATA_ID was negotiated or CQL v5 is used", and the
+	// Scylla java-driver, which skips for any non-empty result metadata ID. The
+	// Scylla python-driver implements the extension half only.
+	//
+	// There is deliberately no knob to force metadata for a whole session once an ID
+	// is in play (the java-driver's skip-cql4-metadata-resolve-method has no
+	// equivalent here). Use Query.NoSkipMetadata for a specific query; ScanCAS and
+	// MapScanCAS already do so internally.
+	//
 	// See https://issues.apache.org/jira/browse/CASSANDRA-10786
 	// See https://github.com/scylladb/scylladb/issues/20860
+	// See https://github.com/scylladb/scylladb/pull/23292
 	//
-	// Default: true
+	// Default: true, and has no effect on a connection that exchanges result
+	// metadata IDs.
 	DisableSkipMetadata bool
 	// DisableShardAwarePort will prevent the driver from connecting to Scylla's shard-aware port,
 	// even if there are nodes in the cluster that support it.
@@ -283,6 +340,22 @@ type ClusterConfig struct {
 	// address in system.local or system.peers returns 127.0.0.1, the peer will be
 	// set to 10.0.0.1 which is what will be used to connect to.
 	IgnorePeerAddr bool
+	// DisableDriverConfigReporting turns off the driver's self-description to the
+	// cluster during connection setup. Reporting is enabled by default so that
+	// operators can inspect the settings of a client while investigating an
+	// incident.
+	//
+	// The control connection sends a DRIVER_CONFIG startup option holding a JSON
+	// description of the effective configuration. It ends up in the
+	// system.clients.client_options column, alongside SESSION_ID, a per-session
+	// unique identifier that every connection of a session reports and that is
+	// always sent regardless of this setting, letting all of a session's
+	// connections be correlated with each other.
+	//
+	// When set to true, DRIVER_CONFIG is not sent. SESSION_ID is unaffected.
+	//
+	// Default: false
+	DisableDriverConfigReporting bool
 	// An event bus configuration
 	EventBusConfig eventbus.EventBusConfig
 }
@@ -375,7 +448,6 @@ func NewCluster(hosts ...string) *ClusterConfig {
 		ConnectTimeout:                60 * time.Second,
 		ReadTimeout:                   11 * time.Second,
 		WriteTimeout:                  11 * time.Second,
-		Port:                          9042,
 		MaxExcessShardConnectionsRate: 2,
 		NumConns:                      2,
 		Consistency:                   Quorum,
@@ -427,21 +499,26 @@ func (cfg *ClusterConfig) filterHost(host *HostInfo) bool {
 }
 
 func (cfg *ClusterConfig) ValidateAndInitSSL() error {
+	cfg.actualSslOpts = nil
 	if cfg.SslOpts == nil {
 		return nil
 	}
-	actualTLSConfig, err := setupTLSConfig(cfg.SslOpts)
+	actualTLSConfig, err := setupTLSConfig(cfg.SslOpts, cfg.logger())
 	if err != nil {
 		return fmt.Errorf("failed to initialize ssl configuration: %s", err.Error())
 	}
 
+	cfg.actualSslOpts = new(atomic.Pointer[tls.Config])
 	cfg.actualSslOpts.Store(actualTLSConfig)
 	return nil
 }
 
 func (cfg *ClusterConfig) getActualTLSConfig() *tls.Config {
-	val, ok := cfg.actualSslOpts.Load().(*tls.Config)
-	if !ok {
+	if cfg.actualSslOpts == nil {
+		return nil
+	}
+	val := cfg.actualSslOpts.Load()
+	if val == nil {
 		return nil
 	}
 	return val.Clone()
@@ -458,16 +535,14 @@ func (cfg *ClusterConfig) WithOptions(opts ...ClusterOption) *ClusterConfig {
 
 type ClientRoutesOption func(*ClientRoutesConfig)
 
+// Deprecated: WithMaxResolverConcurrency no longer has any effect
 func WithMaxResolverConcurrency(val int) func(*ClientRoutesConfig) {
-	return func(cfg *ClientRoutesConfig) {
-		cfg.MaxResolverConcurrency = val
-	}
+	return func(cfg *ClientRoutesConfig) {}
 }
 
+// Deprecated: WithResolveHealthyEndpointPeriod no longer has any effect
 func WithResolveHealthyEndpointPeriod(val time.Duration) func(*ClientRoutesConfig) {
-	return func(cfg *ClientRoutesConfig) {
-		cfg.ResolveHealthyEndpointPeriod = val
-	}
+	return func(cfg *ClientRoutesConfig) {}
 }
 
 func WithEndpoints(endpoints ...ClientRoutesEndpoint) func(*ClientRoutesConfig) {
@@ -484,11 +559,7 @@ func WithTable(tableName string) func(*ClientRoutesConfig) {
 
 func WithClientRoutes(opts ...ClientRoutesOption) func(*ClusterConfig) {
 	pmCfg := ClientRoutesConfig{
-		// Don't resolve healthy nodes by default
-		ResolveHealthyEndpointPeriod: 0,
-		MaxResolverConcurrency:       1,
-		TableName:                    "system.client_routes",
-		ResolverCacheDuration:        time.Millisecond * 500,
+		TableName: "system.client_routes",
 	}
 	for _, opt := range opts {
 		opt(&pmCfg)
@@ -555,6 +626,30 @@ func (cfg *ClusterConfig) Validate() error {
 		return errors.New("NumConns should be positive non-zero number or zero")
 	}
 
+	// Resolve cfg.Port: when the user has not set it explicitly (Port == 0),
+	// attempt to learn it from the host strings (unless client routes are in
+	// use, which manage their own addressing). Fall back to defaultCQLPort when
+	// no port is embedded in the host strings.
+	if cfg.Port == 0 {
+		// When ClientRoutesConfig is set we skip learning from cfg.Hosts because
+		// Private Service Connect (PSC) discovery entry points have different
+		// ports by design, so a uniform port derived from the initial contact
+		// points would be incorrect for peer-discovered nodes.
+		if cfg.ClientRoutesConfig == nil {
+			learned, err := learnPortFromHosts(cfg.Hosts)
+			if err != nil {
+				return err
+			}
+			if learned != 0 {
+				cfg.Port = learned
+			} else {
+				cfg.Port = defaultCQLPort
+			}
+		} else {
+			cfg.Port = defaultCQLPort
+		}
+	}
+
 	if cfg.Port <= 0 || cfg.Port > 65535 {
 		return errors.New("Port should be a valid port number: a number between 1 and 65535")
 	}
@@ -569,6 +664,10 @@ func (cfg *ClusterConfig) Validate() error {
 
 	if cfg.ConnectTimeout < 0 {
 		return errors.New("ConnectTimeout should be positive time.Duration or zero")
+	}
+
+	if cfg.ReadTimeout < 0 {
+		return errors.New("ReadTimeout should be positive time.Duration or zero")
 	}
 
 	if cfg.MetadataSchemaRequestTimeout < 0 {
@@ -591,8 +690,32 @@ func (cfg *ClusterConfig) Validate() error {
 		return errors.New("ProtoVersion should be positive number or zero")
 	}
 
+	if cfg.ProtoVersion >= protoVersion5 && cfg.Compressor != nil {
+		// The native protocol v5 spec allows only lz4 for segment compression.
+		// A v5 server still advertises snappy in its OPTIONS response, but STARTUP
+		// with COMPRESSION=snappy on v5 is rejected server-side ("Snappy
+		// compression is not supported in protocol V5"). We reject any compressor
+		// lacking v5 segment support up front to fail fast with a clear message
+		// rather than at the first segment.
+		//
+		// This is a capability check, not a concrete-type check: a Compressor
+		// supports v5 segment framing iff it also implements SegmentCompressor.
+		// The built-in SnappyCompressor deliberately does not; LZ4Compressor does.
+		// A nil compressor (no compression) is always allowed on v5.
+		if _, ok := cfg.Compressor.(SegmentCompressor); !ok {
+			return fmt.Errorf("compressor %q does not support protocol v5 segment framing; use LZ4Compressor or no compression with ProtoVersion >= 5", cfg.Compressor.Name())
+		}
+	}
+
 	if !cfg.DisableSkipMetadata {
-		cfg.Logger.Println("warning: enabling skipping metadata can lead to unpredictable results when executing query and altering columns involved in the query.")
+		// The hazard this warns about is confined to connections that exchange no
+		// result metadata ID: protocol v4 or lower against a server that does not
+		// advertise SCYLLA_USE_METADATA_ID. Everywhere else the server reports
+		// metadata changes via METADATA_CHANGED, DisableSkipMetadata is ignored, and
+		// skipping is both safe and the default — so say which case is actually risky.
+		// The protocol version is negotiated per connection, long after Validate runs,
+		// so this cannot be narrowed down here.
+		cfg.Logger.Println("warning: skipping result metadata can lead to unpredictable results if columns involved in a prepared query are altered, on connections that exchange no result metadata ID (protocol v4 or lower without the SCYLLA_USE_METADATA_ID extension).")
 	}
 
 	if cfg.SerialConsistency > 0 && !cfg.SerialConsistency.IsSerial() {
@@ -619,13 +742,58 @@ func (cfg *ClusterConfig) Validate() error {
 	return cfg.ValidateAndInitSSL()
 }
 
+const defaultCQLPort = 9042
+
 var (
 	ErrNoHosts              = errors.New("no hosts provided")
 	ErrNoConnectionsStarted = errors.New("no connections were made when creating the session")
 	ErrHostQueryFailed      = errors.New("unable to populate Hosts")
 )
 
-func setupTLSConfig(sslOpts *SslOptions) (*tls.Config, error) {
+// learnPortFromHosts inspects the host entries for embedded ports.
+// It returns the common port (> 0) if every entry carries the same explicit
+// port, 0 if no entry carries a port, or an error as soon as inconsistency
+// is detected: some entries have a port while others don't, or two entries
+// carry different port values.
+func learnPortFromHosts(hosts []string) (int, error) {
+	var port int // 0 = not yet seen
+	sawPortless := false
+	for _, addr := range hosts {
+		_, portStr, err := net.SplitHostPort(addr)
+		if err != nil {
+			// No port in this entry.
+			if port != 0 {
+				// Already saw a ported entry – return immediately.
+				return 0, errors.New(
+					"cfg.Hosts entries must either all include a port or none: " +
+						"use cfg.Port to set a uniform port instead")
+			}
+			sawPortless = true
+			continue
+		}
+		p, err := strconv.Atoi(portStr)
+		if err != nil || p <= 0 || p > 65535 {
+			return 0, fmt.Errorf("invalid port %q in host entry %q: port must be a number between 1 and 65535", portStr, addr)
+		}
+		if sawPortless {
+			// Already saw a portless entry – return immediately.
+			return 0, errors.New(
+				"cfg.Hosts entries must either all include a port or none: " +
+					"use cfg.Port to set a uniform port instead")
+		}
+		if port == 0 {
+			port = p
+		} else if port != p {
+			return 0, fmt.Errorf(
+				"all cfg.Hosts entries must use the same port, got %d and %d: "+
+					"use cfg.Port to set a uniform port instead",
+				port, p)
+		}
+	}
+	return port, nil
+}
+
+func setupTLSConfig(sslOpts *SslOptions, logger StdLogger) (*tls.Config, error) {
 	//  Config.InsecureSkipVerify | EnableHostVerification | Result
 	//  Config is nil             | true                   | verify host
 	//  Config is nil             | false                  | do not verify host
@@ -673,5 +841,94 @@ func setupTLSConfig(sslOpts *SslOptions) (*tls.Config, error) {
 		tlsConfig.Certificates = append(tlsConfig.Certificates, mycert)
 	}
 
+	// Emit deprecation warning if the option is used
+	if sslOpts.DisableStrictCertificateValidation {
+		if logger != nil {
+			logger.Println("gocql: WARNING - DisableStrictCertificateValidation is deprecated and will be removed in a future version. " +
+				"Please ensure your certificate chains are properly configured to work with strict validation.")
+		}
+	}
+
+	// Add strict certificate chain validation unless explicitly disabled
+	// This ensures that the entire certificate chain is properly validated,
+	// not just that one intermediate certificate is trusted.
+	if !tlsConfig.InsecureSkipVerify && !sslOpts.DisableStrictCertificateValidation {
+		strictVerify := strictVerifyPeerCertificate(tlsConfig.RootCAs)
+		existingVerify := tlsConfig.VerifyPeerCertificate
+		tlsConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			if err := strictVerify(rawCerts, verifiedChains); err != nil {
+				return err
+			}
+			if existingVerify != nil {
+				return existingVerify(rawCerts, verifiedChains)
+			}
+			return nil
+		}
+	}
+
 	return tlsConfig, nil
+}
+
+// strictVerifyPeerCertificate returns a VerifyPeerCertificate callback that performs
+// certificate chain validation by explicitly calling cert.Verify(). This ensures that
+// the certificate chain is properly validated against the configured root CAs and
+// intermediate certificates, rather than relying on Go's default TLS behavior.
+func strictVerifyPeerCertificate(rootCAs *x509.CertPool) func([][]byte, [][]*x509.Certificate) error {
+	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		chains := verifiedChains
+		if len(chains) == 0 {
+			if len(rawCerts) == 0 {
+				return errors.New("no certificates provided")
+			}
+			cert, err := x509.ParseCertificate(rawCerts[0])
+			if err != nil {
+				return fmt.Errorf("failed to parse certificate: %v", err)
+			}
+			intermediates := x509.NewCertPool()
+			for i := 1; i < len(rawCerts); i++ {
+				intermediateCert, err := x509.ParseCertificate(rawCerts[i])
+				if err != nil {
+					return fmt.Errorf("failed to parse intermediate certificate: %v", err)
+				}
+				intermediates.AddCert(intermediateCert)
+			}
+			opts := x509.VerifyOptions{
+				Roots:         rootCAs,
+				Intermediates: intermediates,
+				KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			}
+			chains, err = cert.Verify(opts)
+			if err != nil {
+				return fmt.Errorf("certificate verification failed for subject=%q, issuer=%q: %v",
+					cert.Subject.String(), cert.Issuer.String(), err)
+			}
+			if len(chains) == 0 {
+				return fmt.Errorf("no valid certificate chains found for subject=%q", cert.Subject.String())
+			}
+		}
+		for _, chain := range chains {
+			if len(chain) == 0 {
+				continue
+			}
+			chainValid := true
+			for i := 0; i < len(chain)-1; i++ {
+				if err := chain[i].CheckSignatureFrom(chain[i+1]); err != nil {
+					chainValid = false
+					break
+				}
+			}
+			if chainValid {
+				rootCert := chain[len(chain)-1]
+				if err := rootCert.CheckSignatureFrom(rootCert); err != nil {
+					continue
+				}
+				return nil
+			}
+		}
+		subject := "<unknown>"
+		if len(chains) > 0 && len(chains[0]) > 0 {
+			subject = chains[0][0].Subject.String()
+		}
+		return fmt.Errorf("no valid certificate chain terminating at a self-signed root for subject=%q", subject)
+	}
 }

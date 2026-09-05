@@ -33,9 +33,18 @@ import (
 
 const defaultMaxPreparedStmts = 1000
 
+// stmtCacheKey is a composite key for the prepared statement cache.
+// A struct avoids the allocation and collision risk of concatenating
+// (hostID, keyspace, statement) into a single string key.
+type stmtCacheKey struct {
+	keyspace  string
+	statement string
+	hostID    UUID
+}
+
 // preparedLRU is the prepared statement cache
 type preparedLRU struct {
-	lru *lru.Cache
+	lru *lru.Cache[stmtCacheKey]
 	mu  sync.Mutex
 }
 
@@ -48,19 +57,60 @@ func (p *preparedLRU) clear() {
 	}
 }
 
-func (p *preparedLRU) add(key string, val *inflightPrepare) {
+func (p *preparedLRU) add(key stmtCacheKey, val *inflightPrepare) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.lru.Add(key, val)
 }
 
-func (p *preparedLRU) remove(key string) bool {
+func (p *preparedLRU) remove(key stmtCacheKey) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.lru.Remove(key)
 }
 
-func (p *preparedLRU) execIfMissing(key string, fn func(lru *lru.Cache) *inflightPrepare) (*inflightPrepare, bool) {
+// updateMetadataIfSame atomically replaces the cache entry for key with val, but
+// only when the currently cached entry is still the exact prepared statement
+// identified by expect (pointer identity of its preparedStatment, and its done
+// channel already closed). It returns true if the replacement happened.
+//
+// Pointer identity — not the prepared id — is the generation token: a concurrent
+// eviction+reprepare for the same statement installs a new *inflightPrepare with
+// a freshly allocated *preparedStatment, so even though the prepared id bytes are
+// typically identical across reprepares, the pointer differs and this stale
+// refresh is correctly skipped.
+//
+// This makes the METADATA_CHANGED metadata refresh a single locked operation:
+// the presence/identity check and the replacement cannot be interleaved with a
+// concurrent eviction (which would otherwise be resurrected) or with a newer or
+// still-in-flight prepare installed for the same key (which would otherwise be
+// clobbered).
+func (p *preparedLRU) updateMetadataIfSame(key stmtCacheKey, expect *preparedStatment, val *inflightPrepare) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	cur, ok := p.lru.Get(key)
+	if !ok {
+		return false
+	}
+	ifp, ok := cur.(*inflightPrepare)
+	if !ok {
+		return false
+	}
+
+	select {
+	case <-ifp.done:
+		if ifp.preparedStatment != nil && ifp.preparedStatment == expect {
+			p.lru.Add(key, val)
+			return true
+		}
+	default:
+		// still in-flight — leave the newer prepare alone
+	}
+	return false
+}
+
+func (p *preparedLRU) execIfMissing(key stmtCacheKey, fn func(cache *lru.Cache[stmtCacheKey]) *inflightPrepare) (*inflightPrepare, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -72,12 +122,18 @@ func (p *preparedLRU) execIfMissing(key string, fn func(lru *lru.Cache) *infligh
 	return fn(p.lru), false
 }
 
-func (p *preparedLRU) keyFor(hostID, keyspace, statement string) string {
-	// TODO: we should just use a struct for the key in the map
-	return hostID + keyspace + statement
+// keyFor constructs a zero-allocation composite cache key from the given
+// components. The returned struct references the original strings without
+// copying, so no heap allocation occurs.
+func (p *preparedLRU) keyFor(hostID UUID, keyspace, statement string) stmtCacheKey {
+	return stmtCacheKey{
+		hostID:    hostID,
+		keyspace:  keyspace,
+		statement: statement,
+	}
 }
 
-func (p *preparedLRU) evictPreparedID(key string, id []byte) {
+func (p *preparedLRU) evictPreparedID(key stmtCacheKey, id []byte) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -93,10 +149,13 @@ func (p *preparedLRU) evictPreparedID(key string, id []byte) {
 
 	select {
 	case <-ifp.done:
-		if bytes.Equal(id, ifp.preparedStatment.id) {
+		// preparedStatment is nil when the prepare failed. prepareStatement removes
+		// such an entry from the cache before closing done, so it should not be
+		// reachable from here — but that is an ordering nothing enforces, and the
+		// check costs less than the panic. updateMetadataIfSame guards the same way.
+		if ifp.preparedStatment != nil && bytes.Equal(id, ifp.preparedStatment.id) {
 			p.lru.Remove(key)
 		}
 	default:
 	}
-
 }
