@@ -100,8 +100,12 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, e
 
 	var applied bool
 	q := t.Session.ContextQuery(ctx, stmt, params).
-		Consistency(t.writeConsistency).
-		BindStruct(instance)
+		Consistency(t.writeConsistency)
+	if len(opts) == 0 && t.codec != nil {
+		q = q.Bind(t.codec.BindColumns(instance, params)...)
+	} else {
+		q = q.BindStruct(instance)
+	}
 
 	t.Logger.Debug("insert", zap.Stringer("query", q))
 	defer q.Release()

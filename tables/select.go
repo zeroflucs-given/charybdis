@@ -14,8 +14,12 @@ import (
 // behaviour is to return the first record by clustering order.
 func (t *baseManagerImpl[T]) GetByPartitionKey(ctx context.Context, partitionKeys ...any) (*T, error) {
 	return returnWithTracing(ctx, t.Tracer, t.Name, "GetByPartitionKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
+		query := t.Session.Query(t.getByPartitionStmt, t.getByPartitionNames).WithContext(ctx).Bind(partitionKeys...)
+		if t.codec != nil {
+			return t.getWithCodec(query)
+		}
 		var target T
-		errQuery := t.Session.Query(t.getByPartitionStmt, t.getByPartitionNames).WithContext(ctx).Bind(partitionKeys...).Get(&target)
+		errQuery := query.Get(&target)
 		return &target, errQuery
 	})
 }
@@ -23,8 +27,12 @@ func (t *baseManagerImpl[T]) GetByPartitionKey(ctx context.Context, partitionKey
 // GetByPrimaryKey gets a record by primary key, including both partitioning and any clustering keys
 func (t *baseManagerImpl[T]) GetByPrimaryKey(ctx context.Context, primaryKeys ...any) (*T, error) {
 	return returnWithTracing(ctx, t.Tracer, t.Name, "GetByPrimaryKey", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
+		query := t.Session.Query(t.getByPrimaryStmt, t.getByPrimaryNames).WithContext(ctx).Bind(primaryKeys...)
+		if t.codec != nil {
+			return t.getWithCodec(query)
+		}
 		var target T
-		errQuery := t.Session.Query(t.getByPrimaryStmt, t.getByPrimaryNames).WithContext(ctx).Bind(primaryKeys...).Get(&target)
+		errQuery := query.Get(&target)
 		return &target, errQuery
 	})
 }
@@ -45,6 +53,11 @@ func (t *baseManagerImpl[T]) GetUsingOptions(ctx context.Context, opts ...QueryO
 // GetByExample gets a single record, binding by example object with the key fields all set
 func (t *baseManagerImpl[T]) GetByExample(ctx context.Context, example *T) (*T, error) {
 	return returnWithTracing(ctx, t.Tracer, t.Name, "GetByExample", t.TraceAttributes, t.DoTracing, func(ctx context.Context) (*T, error) {
+		if t.codec != nil {
+			query := t.Session.Query(t.getByPrimaryStmt, t.getByPrimaryNames).WithContext(ctx).
+				Bind(t.codec.BindColumns(example, t.getByPrimaryNames)...)
+			return t.getWithCodec(query)
+		}
 		var target T
 		errQuery := t.Session.Query(t.getByPrimaryStmt, t.getByPrimaryNames).WithContext(ctx).BindStruct(example).Get(&target)
 		return &target, errQuery
@@ -74,7 +87,7 @@ func (t *baseManagerImpl[T]) GetByIndexedColumn(ctx context.Context, columnName 
 // SelectByCustomQuery gets all records by a custom query in a paged fashion
 func (t *baseManagerImpl[T]) SelectByCustomQuery(ctx context.Context, queryBuilder QueryBuilderFn, pagingFn PageHandlerFn[T], opts ...QueryOption) error {
 	return doWithTracing(ctx, t.Tracer, t.Name, "SelectByCustomQuery", t.TraceAttributes, t.DoTracing, func(ctx context.Context) error {
-		return t.pageQueryInternal(ctx, queryBuilder, pagingFn, opts...) // Fixme: warning bindings wont be right here if an option to set bindings is used
+		return t.pageQueryInternal(ctx, queryBuilder, pagingFn, false, opts...) // Fixme: warning bindings wont be right here if an option to set bindings is used
 	})
 }
 
@@ -85,7 +98,7 @@ func (t *baseManagerImpl[T]) SelectByIndexedColumn(ctx context.Context, fn PageH
 			stmt, params := t.basicQueryBuilder(opts...).Where(qb.Eq(columnName)).ToCql()
 			bindings := append(t.bindings(opts...), columnValue)
 			return t.Session.Query(stmt, params).WithContext(ctx).Bind(bindings...)
-		}, fn, opts...)
+		}, fn, true, opts...)
 	})
 }
 
@@ -96,7 +109,7 @@ func (t *baseManagerImpl[T]) SelectByPartitionKey(ctx context.Context, fn PageHa
 			stmt, params := t.basicQueryBuilder(opts...).Where(t.partitionKeyPredicates...).ToCql()
 			bindings := append(t.bindings(opts...), partitionKeys...)
 			return t.Session.Query(stmt, params).WithContext(ctx).Bind(bindings...)
-		}, fn, opts...)
+		}, fn, true, opts...)
 	})
 }
 
@@ -109,19 +122,50 @@ func (t *baseManagerImpl[T]) SelectByPrimaryKey(ctx context.Context, fn PageHand
 			stmt, params := t.basicQueryBuilder(opts...).Where(predicates...).ToCql()
 			bindings := append(t.bindings(opts...), primaryKeys...)
 			return t.Session.Query(stmt, params).WithContext(ctx).Bind(bindings...)
-		}, fn, opts...)
+		}, fn, true, opts...)
 	})
 }
 
 // Construct a (partial) query builder using the given options
 func (t *baseManagerImpl[T]) basicQueryBuilder(opts ...QueryOption) *qb.SelectBuilder {
 	builder := qb.Select(t.Table.Name())
+	if t.codec != nil && !optionsProjectColumns(opts) {
+		builder = builder.Columns(t.allColumnNames...)
+	}
 
 	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
 		builder = opt.applyToBuilder(builder)
 	}
 
 	return builder
+}
+
+// getWithCodec reads the first row of the query through the generated codec
+func (t *baseManagerImpl[T]) getWithCodec(query *gocqlx.Queryx) (*T, error) {
+	defer query.Release()
+	iter := query.Iter()
+	target, found := t.codec.ScanNext(iter.Iter, make([]any, len(t.allColumnNames)))
+	if errClose := iter.Close(); errClose != nil {
+		return nil, errClose
+	}
+	if !found {
+		return nil, gocql.ErrNotFound
+	}
+	return target, nil
+}
+
+// optionsProjectColumns reports whether any option narrows the selected column set, which
+// makes the full-specification codec unable to scan the result
+func optionsProjectColumns(opts []QueryOption) bool {
+	for _, opt := range opts {
+		if opt != nil && len(opt.columns()) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // Collect all the bindings needed for the query

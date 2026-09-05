@@ -14,8 +14,11 @@ type PageHandlerFn[T any] func(ctx context.Context, records []*T, originalPaging
 // QueryBuilderFn is a function used to provide custom query instances to execute.
 type QueryBuilderFn func(ctx context.Context, sess gocqlx.Session) *gocqlx.Queryx
 
-// pageQueryInternal performs paging of a query
-func (t *baseManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder QueryBuilderFn, fn PageHandlerFn[T], opts ...QueryOption) error {
+// pageQueryInternal performs paging of a query. Codec scanning applies only to statements this
+// manager built with its full column list, never to caller-supplied custom statements.
+func (t *baseManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder QueryBuilderFn, fn PageHandlerFn[T], useCodec bool, opts ...QueryOption) error {
+	useCodec = useCodec && t.codec != nil && !optionsProjectColumns(opts)
+
 	var pageState []byte
 
 	for {
@@ -47,7 +50,7 @@ func (t *baseManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder
 
 		iter := query.Iter()
 
-		records, updatedPageState, err := t.fetchOnePage(ctx, iter)
+		records, updatedPageState, err := t.fetchOnePage(ctx, iter, useCodec)
 		query.Release()
 
 		if err != nil {
@@ -74,9 +77,23 @@ func (t *baseManagerImpl[T]) pageQueryInternal(ctx context.Context, queryBuilder
 }
 
 // fetchOnePage fetches a single page of a paged query
-func (t *baseManagerImpl[T]) fetchOnePage(ctx context.Context, iter *gocqlx.Iterx) ([]*T, []byte, error) {
+func (t *baseManagerImpl[T]) fetchOnePage(ctx context.Context, iter *gocqlx.Iterx, useCodec bool) ([]*T, []byte, error) {
 	if ctx.Err() != nil {
 		return nil, nil, ctx.Err()
+	}
+
+	if useCodec {
+		pageState := iter.PageState()
+		result := make([]*T, 0, iter.NumRows())
+		scratch := make([]any, len(t.allColumnNames))
+		for {
+			row, ok := t.codec.ScanNext(iter.Iter, scratch)
+			if !ok {
+				break
+			}
+			result = append(result, row)
+		}
+		return result, pageState, iter.Close()
 	}
 
 	var result []*T

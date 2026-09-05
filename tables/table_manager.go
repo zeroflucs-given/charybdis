@@ -105,6 +105,13 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 		writeConsistency: params.WriteConsistency,
 	}
 
+	if errCodec := mgr.adoptCodec(params.RowCodec); errCodec != nil {
+		return nil, errCodec
+	}
+	// UDT columns need the reflection mapper's marshalling wrappers, which a codec bypasses
+	if mgr.codec != nil && len(params.TableSpec.CustomTypes) > 0 {
+		return nil, fmt.Errorf("row codec for %s not supported: table uses custom types, which require reflection mapping", params.TableSpec.Name)
+	}
 	mgr.precomputeStatements()
 	mgr.upsertStmt, mgr.upsertNames = qb.Update(mgr.qualifiedTableName).
 		Set(mgr.nonKeyColumns...).

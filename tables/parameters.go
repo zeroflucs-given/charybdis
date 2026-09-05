@@ -25,6 +25,7 @@ type tableManagerParameters struct {
 	WriteConsistency gocql.Consistency
 	TTL              time.Duration
 	queryTimeout     time.Duration // Populated when the cluster options are set.
+	RowCodec         any           // RowCodec[T] for the managed type; asserted at construction
 }
 
 type SessionFactory func(keyspace string) (*gocql.Session, error)

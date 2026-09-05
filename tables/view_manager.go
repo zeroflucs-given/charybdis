@@ -87,6 +87,13 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 		},
 	}
 
+	if errCodec := mgr.adoptCodec(params.RowCodec); errCodec != nil {
+		return nil, errCodec
+	}
+	// UDT columns need the reflection mapper's marshalling wrappers, which a codec bypasses
+	if mgr.codec != nil && len(params.TableSpec.CustomTypes) > 0 {
+		return nil, fmt.Errorf("row codec for %s not supported: view uses custom types, which require reflection mapping", params.ViewSpec.Name)
+	}
 	mgr.precomputeStatements()
 
 	return mgr, nil

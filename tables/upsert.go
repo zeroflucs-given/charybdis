@@ -63,7 +63,11 @@ func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, g
 	}
 
 	var query *gocqlx.Queryx
-	if len(opts) == 0 {
+	if len(opts) == 0 && t.codec != nil {
+		query = t.Session.Query(t.upsertStmt, t.upsertNames).
+			WithContext(ctx).
+			Bind(t.codec.BindColumns(instance, t.upsertNames)...)
+	} else if len(opts) == 0 {
 		query = t.Session.Query(t.upsertStmt, t.upsertNames).
 			WithContext(ctx).
 			BindStruct(instance)

@@ -63,10 +63,13 @@ func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, o
 
 	var applied bool
 	for {
-		applied, err = t.Session.
-			ContextQuery(retryCtx, stmt, params).
-			BindStructMap(instance, additionalVals).
-			ExecCASRelease()
+		query := t.Session.ContextQuery(retryCtx, stmt, params)
+		if len(opts) == 0 && t.codec != nil {
+			query = query.Bind(t.codec.BindColumns(instance, params)...)
+		} else {
+			query = query.BindStructMap(instance, additionalVals)
+		}
+		applied, err = query.ExecCASRelease()
 
 		if err == nil {
 			break
