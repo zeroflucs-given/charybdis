@@ -96,11 +96,15 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 			partitionKeyPredicates: generics.Map(params.TableSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
 				return qb.Eq(c.Column.Name)
 			}),
-			allKeyPredicates: generics.Map(generics.Filter(params.TableSpec.Columns, func(i int, c *metadata.ColumnSpecification) bool {
-				return c.IsPartitioningKey || c.IsClusteringKey
-			}), func(i int, c *metadata.ColumnSpecification) qb.Cmp {
-				return qb.Eq(c.Name)
-			}),
+			// Positional key bindings are partition keys then clustering keys, regardless of column declaration order
+			allKeyPredicates: generics.Concatenate(
+				generics.Map(params.TableSpec.Partitioning, func(i int, p *metadata.PartitioningColumn) qb.Cmp {
+					return qb.Eq(p.Column.Name)
+				}),
+				generics.Map(params.TableSpec.Clustering, func(i int, c *metadata.ClusteringColumn) qb.Cmp {
+					return qb.Eq(c.Column.Name)
+				}),
+			),
 			queryTimeout: params.queryTimeout,
 		},
 

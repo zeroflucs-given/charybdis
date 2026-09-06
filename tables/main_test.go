@@ -54,6 +54,7 @@ var testTableDeclarations = []string{
 	"create table charybdis_tests.order_items (order_id varchar, item_id varchar, quantity int, primary key((order_id), item_id))",
 	"CREATE INDEX order_item_lookup ON charybdis_tests.order_items (item_id)",
 	"CREATE MATERIALIZED VIEW charybdis_tests.item_orders AS SELECT * FROM charybdis_tests.order_items WHERE order_id IS NOT NULL AND item_id IS NOT NULL AND (quantity > 0) PRIMARY KEY((item_id), order_id, quantity) WITH CLUSTERING ORDER BY (order_id ASC)",
+	"create table charybdis_tests.key_order (id bigint, owner varchar, kind varchar, primary key((owner, kind), id))",
 }
 
 var testClusterConfig utils.ClusterConfigGeneratorFn
