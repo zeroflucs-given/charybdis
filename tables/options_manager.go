@@ -2,6 +2,7 @@ package tables
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -23,6 +24,31 @@ func WithCluster(cluster utils.ClusterConfigGeneratorFn) ManagerOption {
 				params.queryTimeout = clusterVal.Timeout
 				return clusterVal.CreateSession()
 			}
+			return nil
+		},
+	}
+}
+
+// WithSession uses an existing session for the manager instead of creating one per manager. The session
+// need not have a default keyspace, as every statement the manager issues is keyspace-qualified; if it
+// does have one, it must be the manager's keyspace. The manager never closes the session. queryTimeout
+// should match the Timeout of the cluster configuration the session was created from.
+func WithSession(session *gocql.Session, queryTimeout time.Duration) ManagerOption {
+	return &tableManagerOption{
+		parametersHook: func(ctx context.Context, params *tableManagerParameters) error {
+			if session == nil {
+				return ErrNoSession
+			}
+			if queryTimeout <= 0 {
+				return ErrNoQueryTimeout
+			}
+			params.SessionFactory = func(keyspace string) (*gocql.Session, error) {
+				if sessionKeyspace := sessionDefaultKeyspace(session); sessionKeyspace != "" && sessionKeyspace != keyspace {
+					return nil, fmt.Errorf("session defaults to %q but manager uses %q: %w", sessionKeyspace, keyspace, ErrSessionKeyspaceMismatch)
+				}
+				return session, nil
+			}
+			params.queryTimeout = queryTimeout
 			return nil
 		},
 	}
@@ -221,4 +247,12 @@ func (t *tableManagerOption) beforeChange(ctx context.Context, rec any) error {
 
 func (t *tableManagerOption) afterChange(ctx context.Context, rec any) error {
 	return nil
+}
+
+// sessionDefaultKeyspace reads the keyspace a session was configured with. gocql exposes no accessor,
+// but a query with no routing information reports the session default from Keyspace().
+func sessionDefaultKeyspace(session *gocql.Session) string {
+	query := session.Query("")
+	defer query.Release()
+	return query.Keyspace()
 }

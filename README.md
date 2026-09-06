@@ -157,6 +157,11 @@ You can alternatively omit the DDL management helpers, and specify a pre-built `
 	}
 ```
 
+Every statement a manager issues names its table as `keyspace.table`, so managers do not rely on the
+session having a default keyspace. To share one session across many managers (and keyspaces), create it
+once and pass `tables.WithSession(session, queryTimeout)` in place of `tables.WithCluster`; the manager
+never closes a session it was given, and refuses one whose default keyspace is a different keyspace. `QualifiedName()` returns the qualified name for custom queries.
+
 ### Inserting Data
 This record is inserted with a 1 minute TTL. For more information see the below r/e options that can be passed.
 

@@ -46,13 +46,16 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 		return nil, fmt.Errorf("error validating view spec: %w", errView)
 	}
 
+	table, errView := params.ViewSpec.ToCQLX(params.Keyspace)
+	if errView != nil {
+		return nil, fmt.Errorf("building view metadata: %w", errView)
+	}
+
 	// Create our session
 	wrappedSession, err := gocqlx.WrapSession(params.SessionFactory(params.Keyspace))
 	if err != nil {
 		return nil, fmt.Errorf("error wrapping session: %w", err)
 	}
-
-	table := params.ViewSpec.ToCQLX()
 
 	mgr := &viewManager[T]{
 		baseManagerImpl: baseManagerImpl[T]{
@@ -71,7 +74,7 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 
 			// Helper data
 			readConsistency:    params.ReadConsistency,
-			qualifiedTableName: params.Keyspace + "." + params.ViewSpec.Name,
+			qualifiedTableName: table.Name(),
 			allColumnNames:     table.Metadata().Columns,
 			partitionKeyPredicates: generics.Map(params.ViewSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
 				return qb.Eq(c.Column.Name)

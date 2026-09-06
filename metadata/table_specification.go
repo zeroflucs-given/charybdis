@@ -77,14 +77,20 @@ func (t *TableSpecification) Clone(includeIndexes bool) *TableSpecification {
 	return spec
 }
 
-// ToCQLX converts this tablespec to a go-cqlx friendly metadata object.
-func (t *TableSpecification) ToCQLX() *table.Table {
+// ToCQLX converts this tablespec to a go-cqlx friendly metadata object whose statements name the
+// table as keyspace.table, so they do not depend on the session having a default keyspace.
+func (t *TableSpecification) ToCQLX(keyspace string) (*table.Table, error) {
 	if t == nil {
-		return nil
+		return nil, ErrNoObject
+	}
+
+	name, err := QualifiedName(keyspace, t.Name)
+	if err != nil {
+		return nil, err
 	}
 
 	md := table.Metadata{
-		Name: t.Name,
+		Name: name,
 		Columns: generics.Map(t.Columns, func(i int, v *ColumnSpecification) string {
 			return v.Name
 		}),
@@ -96,7 +102,7 @@ func (t *TableSpecification) ToCQLX() *table.Table {
 		}),
 	}
 
-	return table.New(md)
+	return table.New(md), nil
 }
 
 // Validate the table specification

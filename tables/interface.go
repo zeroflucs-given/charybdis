@@ -49,6 +49,9 @@ type TableManager[T any] interface {
 	// GetTableSpec gets the table specification for this table-manager
 	GetTableSpec() *metadata.TableSpecification
 
+	// QualifiedName gets the keyspace-qualified table name, for use in custom queries
+	QualifiedName() string
+
 	// GetSession gets the underlying session. Caveat emptor.
 	// This will be an implementation-specific type. If using gocqlx, this is a gocqlx.Session.
 	GetSession() any
@@ -103,6 +106,9 @@ type TableManager[T any] interface {
 
 // ViewManager is an object that provides an abstraction over a view in ScyllaDB
 type ViewManager[T any] interface {
+	// QualifiedName gets the keyspace-qualified view name, for use in custom queries
+	QualifiedName() string
+
 	// CountByPartitionKey gets the number of records in the partition.
 	CountByPartitionKey(ctx context.Context, partitionKeys ...any) (int64, error)
 

@@ -58,13 +58,16 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 		return nil, fmt.Errorf("validating table spec: %w", errTable)
 	}
 
+	table, errTable := params.TableSpec.ToCQLX(params.Keyspace)
+	if errTable != nil {
+		return nil, fmt.Errorf("building table metadata: %w", errTable)
+	}
+
 	// Create our session
 	wrappedSession, err := gocqlx.WrapSession(params.SessionFactory(params.Keyspace))
 	if err != nil {
 		return nil, fmt.Errorf("wrapping session: %w", err)
 	}
-
-	table := params.TableSpec.ToCQLX()
 
 	mgr := &tableManagerImpl[T]{
 		baseManagerImpl: baseManagerImpl[T]{
@@ -83,7 +86,7 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 
 			// Helper data
 			readConsistency:    params.ReadConsistency,
-			qualifiedTableName: params.Keyspace + "." + params.TableSpec.Name,
+			qualifiedTableName: table.Name(),
 			allColumnNames:     table.Metadata().Columns,
 			nonKeyColumns: generics.Map(generics.Filter(params.TableSpec.Columns, func(i int, c *metadata.ColumnSpecification) bool {
 				return !c.IsPartitioningKey && !c.IsClusteringKey

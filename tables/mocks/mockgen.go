@@ -347,6 +347,20 @@ func (mr *MockTableManagerMockRecorder[T]) InsertOrReplace(ctx, instance any, op
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertOrReplace", reflect.TypeOf((*MockTableManager[T])(nil).InsertOrReplace), varargs...)
 }
 
+// QualifiedName mocks base method.
+func (m *MockTableManager[T]) QualifiedName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QualifiedName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// QualifiedName indicates an expected call of QualifiedName.
+func (mr *MockTableManagerMockRecorder[T]) QualifiedName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QualifiedName", reflect.TypeOf((*MockTableManager[T])(nil).QualifiedName))
+}
+
 // Scan mocks base method.
 func (m *MockTableManager[T]) Scan(ctx context.Context, fn tables.PageHandlerFn[T], opts ...tables.QueryOption) error {
 	m.ctrl.T.Helper()
@@ -650,6 +664,20 @@ func (mr *MockViewManagerMockRecorder[T]) GetUsingOptions(ctx any, opts ...any) 
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{ctx}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUsingOptions", reflect.TypeOf((*MockViewManager[T])(nil).GetUsingOptions), varargs...)
+}
+
+// QualifiedName mocks base method.
+func (m *MockViewManager[T]) QualifiedName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QualifiedName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// QualifiedName indicates an expected call of QualifiedName.
+func (mr *MockViewManagerMockRecorder[T]) QualifiedName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QualifiedName", reflect.TypeOf((*MockViewManager[T])(nil).QualifiedName))
 }
 
 // Scan mocks base method.

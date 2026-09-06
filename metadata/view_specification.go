@@ -63,10 +63,16 @@ func (v *ViewSpecification) Validate() error {
 	return nil
 }
 
-// ToCQLX converts this tablespec to a go-cqlx friendly metadata object.
-func (v *ViewSpecification) ToCQLX() *table.Table {
+// ToCQLX converts this view spec to a go-cqlx friendly metadata object whose statements name the
+// view as keyspace.view, so they do not depend on the session having a default keyspace.
+func (v *ViewSpecification) ToCQLX(keyspace string) (*table.Table, error) {
 	if v == nil {
-		return nil
+		return nil, ErrNoObject
+	}
+
+	name, err := QualifiedName(keyspace, v.Name)
+	if err != nil {
+		return nil, err
 	}
 
 	// The full list of columns needs to be built from the partition and sorting keys and
@@ -92,7 +98,7 @@ func (v *ViewSpecification) ToCQLX() *table.Table {
 	}
 
 	md := table.Metadata{
-		Name: v.Name,
+		Name: name,
 		Columns: generics.Map(allColumns, func(i int, v *ColumnSpecification) string {
 			return v.Name
 		}),
@@ -104,5 +110,5 @@ func (v *ViewSpecification) ToCQLX() *table.Table {
 		}),
 	}
 
-	return table.New(md)
+	return table.New(md), nil
 }

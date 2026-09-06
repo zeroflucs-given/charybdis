@@ -77,3 +77,8 @@ func (t *baseManagerImpl[T]) adoptCodec(codec any) error {
 	t.codec = typed
 	return nil
 }
+
+// QualifiedName gets the keyspace-qualified name of the table or view
+func (t *baseManagerImpl[T]) QualifiedName() string {
+	return t.qualifiedTableName
+}

@@ -28,3 +28,6 @@ var ErrInconsistentMetadata = errors.New("inconsistent metadata")
 // ErrViewKeyUnsuitable indicates the view key definition was incorrect. It either
 // is missing a base table key, or has multiple additional fields.
 var ErrViewKeyUnsuitable = errors.New("view keys must contain all table keys, plus at most one extra")
+
+// ErrNoKeyspace indicates a keyspace name is required but was blank
+var ErrNoKeyspace = errors.New("keyspace name is required")
