@@ -32,7 +32,7 @@ type baseManagerImpl[T any] struct {
 	nonKeyColumns          []string          // Non-key column names
 	partitionKeyPredicates []qb.Cmp          // Partition key predicates
 	allKeyPredicates       []qb.Cmp          // All key predicates, including partition key, in order
-	queryTimeout           time.Duration     // Timout for queries - copied through from the Session settings
+	queryTimeout           time.Duration     // Timeout for queries - copied through from the Session settings
 
 	// Precomputed statements for fixed-shape operations
 	getByPartitionStmt  string   // Select by partition key

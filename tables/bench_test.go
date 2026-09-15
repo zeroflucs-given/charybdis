@@ -165,7 +165,7 @@ func BenchmarkSelectByPartitionKey(b *testing.B) {
 	ctx := context.Background()
 	manager := benchOrderItemManager(b)
 
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		obj := &OrderItem{OrderID: "bench-select-order", ItemID: fmt.Sprintf("item-%03d", i), Quantity: i}
 		if err := manager.Upsert(ctx, obj); err != nil {
 			b.Fatalf("seeding: %v", err)

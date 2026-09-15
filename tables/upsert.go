@@ -36,7 +36,7 @@ func (t *tableManagerImpl[T]) UpsertBulk(ctx context.Context, instances []*T, co
 		// Twice the gate size keeps preparation ahead of execution without a goroutine per instance
 		var next atomic.Int64
 		workers := min(len(instances), concurrency*2)
-		for w := 0; w < workers; w++ {
+		for range workers {
 			grp.Go(func() error {
 				for {
 					i := int(next.Add(1)) - 1
