@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/gocql/gocql"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -105,4 +106,31 @@ func TestWithSimpleIfNotFound(t *testing.T) {
 	require.NoError(t, errGet, "Should not error fetching")
 	require.NotNil(t, fetched, "Should get object back")
 	require.Equal(t, testAddress(3, "Initial Street", "Somerville"), fetched.ShippingAddress, "Should be no change")
+}
+
+// TestUpsertUsesWriteConsistency checks upserts run at the manager's write consistency rather than the
+// session default. The test keyspace has one replica, so TWO can never be met.
+func TestUpsertUsesWriteConsistency(t *testing.T) {
+	// Test globals
+	ctx := context.Background()
+	manager, err := tables.NewTableManager[Order](ctx,
+		tables.WithCluster(testClusterConfig),
+		tables.WithKeyspace(TestKeyspace),
+		tables.WithTableSpecification(OrdersTableSpec),
+		tables.WithDefaultWriteConsistency(gocql.Two),
+		tables.WithLogger(zaptest.NewLogger(t)),
+	)
+	require.NoError(t, err, "Should not error starting up")
+
+	// Act
+	obj := &Order{
+		OrderID:         "upsert-test-consistency",
+		ShippingAddress: testAddress(1, "Upsert Street", "Somerville"),
+	}
+	errUpsert := manager.Upsert(ctx, obj)
+
+	// Assert
+	var unavailable *gocql.RequestErrUnavailable
+	require.ErrorAs(t, errUpsert, &unavailable, "Should be unable to meet TWO")
+	require.Equal(t, gocql.Two, unavailable.Consistency)
 }

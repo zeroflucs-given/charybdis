@@ -58,7 +58,8 @@ func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, o
 
 	var applied bool
 	err = retryWriteTimeouts(retryCtx, t.Logger, "update", func() error {
-		query := t.Session.ContextQuery(retryCtx, stmt, params)
+		query := t.Session.ContextQuery(retryCtx, stmt, params).
+			Consistency(t.writeConsistency)
 		if len(opts) == 0 && t.codec != nil {
 			query = query.Bind(t.codec.BindColumns(instance, params)...)
 		} else {

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gocql/gocql"
 	"github.com/stretchr/testify/require"
 
 	"github.com/zeroflucs-given/charybdis/tables"
@@ -186,4 +187,42 @@ func TestWithSimpleIfNotExists(t *testing.T) {
 
 	// Assert
 	require.Error(t, errUpdate, "Expect error updating")
+}
+
+// TestUpdateUsesWriteConsistency checks updates run at the manager's write consistency rather than the
+// session default. The test keyspace has one replica, so TWO can never be met.
+func TestUpdateUsesWriteConsistency(t *testing.T) {
+	// Test globals
+	ctx := context.Background()
+	manager, err := tables.NewTableManager[Order](ctx,
+		tables.WithCluster(testClusterConfig),
+		tables.WithKeyspace(TestKeyspace),
+		tables.WithTableSpecification(OrdersTableSpec))
+	require.NoError(t, err, "Should not error starting up")
+	strictManager, err := tables.NewTableManager[Order](ctx,
+		tables.WithCluster(testClusterConfig),
+		tables.WithKeyspace(TestKeyspace),
+		tables.WithTableSpecification(OrdersTableSpec),
+		tables.WithDefaultWriteConsistency(gocql.Two))
+	require.NoError(t, err, "Should not error starting up")
+
+	// Arrange
+	obj := &Order{
+		OrderID:         "update-test-consistency",
+		ShippingAddress: testAddress(1, "Insert Street", "Somerville"),
+	}
+	errInsert := manager.Insert(ctx, obj)
+	require.NoError(t, errInsert, "Should not error inserting")
+
+	// Act
+	updated := &Order{
+		OrderID:         "update-test-consistency",
+		ShippingAddress: testAddress(2, "Update Street", "Somerville"),
+	}
+	errUpdate := strictManager.Update(ctx, updated)
+
+	// Assert
+	var unavailable *gocql.RequestErrUnavailable
+	require.ErrorAs(t, errUpdate, &unavailable, "Should be unable to meet TWO")
+	require.Equal(t, gocql.Two, unavailable.Consistency)
 }

@@ -83,6 +83,7 @@ func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, g
 		query = builder.QueryContext(ctx, t.Session).
 			BindStructMap(instance, additionalVals)
 	}
+	query = query.Consistency(t.writeConsistency)
 
 	defer query.Release()
 	t.Logger.Debug("upsert by primary key", zap.Stringer("query", query))
