@@ -82,7 +82,7 @@ func main() {
 			FirstName: fmt.Sprintf("User %d", i),
 			Locations: []*Address{
 				{
-					Number: fmt.Sprintf("%d", rand.Uint()%1000),
+					Number: fmt.Sprintf("%d", rand.Uint()%1000), //nolint:gosec // non-cryptographic use: generating sample data for the demo
 					Street: pick(someStreets),
 					City:   pick(someTowns),
 				},
