@@ -58,36 +58,34 @@ func NewViewManager[T any](ctx context.Context, options ...ManagerOption) (ViewM
 	}
 
 	mgr := &viewManager[T]{
-		baseManagerImpl: baseManagerImpl[T]{
-			// Base objects
-			Logger: params.Logger.With(
-				zap.String("keyspace", params.Keyspace),
-				zap.String("view", params.ViewSpec.Name)),
-			Tracer:    otel.Tracer(TracingModuleName),
-			DoTracing: params.DoTracing,
+		// Base objects
+		Logger: params.Logger.With(
+			zap.String("keyspace", params.Keyspace),
+			zap.String("view", params.ViewSpec.Name)),
+		Tracer:    otel.Tracer(TracingModuleName),
+		DoTracing: params.DoTracing,
 
-			// Metadata
-			Name:          params.ViewSpec.Name,
-			Session:       wrappedSession,
-			Table:         table,
-			TableMetadata: table.Metadata(),
+		// Metadata
+		Name:          params.ViewSpec.Name,
+		Session:       wrappedSession,
+		Table:         table,
+		TableMetadata: table.Metadata(),
 
-			// Helper data
-			readConsistency:    params.ReadConsistency,
-			qualifiedTableName: table.Name(),
-			allColumnNames:     table.Metadata().Columns,
-			partitionKeyPredicates: generics.Map(params.ViewSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
+		// Helper data
+		readConsistency:    params.ReadConsistency,
+		qualifiedTableName: table.Name(),
+		allColumnNames:     table.Metadata().Columns,
+		partitionKeyPredicates: generics.Map(params.ViewSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
+			return qb.Eq(c.Column.Name)
+		}),
+		allKeyPredicates: generics.Concatenate(
+			generics.Map(params.ViewSpec.Partitioning, func(i int, p *metadata.PartitioningColumn) qb.Cmp {
+				return qb.Eq(p.Column.Name)
+			}),
+			generics.Map(params.ViewSpec.Clustering, func(i int, c *metadata.ClusteringColumn) qb.Cmp {
 				return qb.Eq(c.Column.Name)
 			}),
-			allKeyPredicates: generics.Concatenate(
-				generics.Map(params.ViewSpec.Partitioning, func(i int, p *metadata.PartitioningColumn) qb.Cmp {
-					return qb.Eq(p.Column.Name)
-				}),
-				generics.Map(params.ViewSpec.Clustering, func(i int, c *metadata.ClusteringColumn) qb.Cmp {
-					return qb.Eq(c.Column.Name)
-				}),
-			),
-		},
+		),
 	}
 
 	if errCodec := mgr.adoptCodec(params.RowCodec); errCodec != nil {

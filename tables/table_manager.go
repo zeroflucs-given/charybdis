@@ -70,43 +70,41 @@ func NewTableManager[T any](ctx context.Context, options ...ManagerOption) (Tabl
 	}
 
 	mgr := &tableManagerImpl[T]{
-		baseManagerImpl: baseManagerImpl[T]{
-			// Base objects
-			Logger: params.Logger.With(
-				zap.String("keyspace", params.Keyspace),
-				zap.String("table", params.TableSpec.Name)),
-			Tracer:    otel.Tracer(TracingModuleName),
-			DoTracing: params.DoTracing,
+		// Base objects
+		Logger: params.Logger.With(
+			zap.String("keyspace", params.Keyspace),
+			zap.String("table", params.TableSpec.Name)),
+		Tracer:    otel.Tracer(TracingModuleName),
+		DoTracing: params.DoTracing,
 
-			// Metadata
-			Name:          params.TableSpec.Name,
-			Session:       wrappedSession,
-			Table:         table,
-			TableMetadata: table.Metadata(),
+		// Metadata
+		Name:          params.TableSpec.Name,
+		Session:       wrappedSession,
+		Table:         table,
+		TableMetadata: table.Metadata(),
 
-			// Helper data
-			readConsistency:    params.ReadConsistency,
-			qualifiedTableName: table.Name(),
-			allColumnNames:     table.Metadata().Columns,
-			nonKeyColumns: generics.Map(generics.Filter(params.TableSpec.Columns, func(i int, c *metadata.ColumnSpecification) bool {
-				return !c.IsPartitioningKey && !c.IsClusteringKey
-			}), func(i int, c *metadata.ColumnSpecification) string {
-				return c.Name
+		// Helper data
+		readConsistency:    params.ReadConsistency,
+		qualifiedTableName: table.Name(),
+		allColumnNames:     table.Metadata().Columns,
+		nonKeyColumns: generics.Map(generics.Filter(params.TableSpec.Columns, func(i int, c *metadata.ColumnSpecification) bool {
+			return !c.IsPartitioningKey && !c.IsClusteringKey
+		}), func(i int, c *metadata.ColumnSpecification) string {
+			return c.Name
+		}),
+		partitionKeyPredicates: generics.Map(params.TableSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
+			return qb.Eq(c.Column.Name)
+		}),
+		// Positional key bindings are partition keys then clustering keys, regardless of column declaration order
+		allKeyPredicates: generics.Concatenate(
+			generics.Map(params.TableSpec.Partitioning, func(i int, p *metadata.PartitioningColumn) qb.Cmp {
+				return qb.Eq(p.Column.Name)
 			}),
-			partitionKeyPredicates: generics.Map(params.TableSpec.Partitioning, func(i int, c *metadata.PartitioningColumn) qb.Cmp {
+			generics.Map(params.TableSpec.Clustering, func(i int, c *metadata.ClusteringColumn) qb.Cmp {
 				return qb.Eq(c.Column.Name)
 			}),
-			// Positional key bindings are partition keys then clustering keys, regardless of column declaration order
-			allKeyPredicates: generics.Concatenate(
-				generics.Map(params.TableSpec.Partitioning, func(i int, p *metadata.PartitioningColumn) qb.Cmp {
-					return qb.Eq(p.Column.Name)
-				}),
-				generics.Map(params.TableSpec.Clustering, func(i int, c *metadata.ClusteringColumn) qb.Cmp {
-					return qb.Eq(c.Column.Name)
-				}),
-			),
-			queryTimeout: params.queryTimeout,
-		},
+		),
+		queryTimeout: params.queryTimeout,
 
 		tableSpec:        params.TableSpec,
 		writeConsistency: params.WriteConsistency,
