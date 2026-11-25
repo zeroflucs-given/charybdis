@@ -2,11 +2,8 @@ package tables
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"time"
 
-	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v3/qb"
 	"go.uber.org/zap"
 )
@@ -30,7 +27,6 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 			}
 		}
 
-		st := time.Now()
 		retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
 		defer cancel()
 
@@ -45,21 +41,7 @@ func (t *tableManagerImpl[T]) Delete(ctx context.Context, instance *T) error {
 
 		defer q.Release()
 
-		var timeRemaining AsStringerFunc = func() string {
-			return time.Since(st).String()
-		}
-
-		logger := t.Logger.
-			With(
-				zap.String("operation", "delete"),
-				zap.Duration("timeout", t.queryTimeout),
-			).
-			WithLazy(
-				zap.Stringer("query", q),
-				zap.Stringer("execution_time_to_now", timeRemaining),
-			)
-
-		return retryBeforeTimeout(logger, q, false)
+		return retryWriteTimeouts(retryCtx, t.Logger, "delete", q.Exec)
 	})
 }
 
@@ -113,7 +95,6 @@ func (t *tableManagerImpl[T]) deleteInternal(ctx context.Context, opts ...Delete
 		}
 	}
 
-	st := time.Now()
 	retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
 	defer cancel()
 
@@ -137,53 +118,14 @@ func (t *tableManagerImpl[T]) deleteInternal(ctx context.Context, opts ...Delete
 
 	defer query.Release()
 
-	var timeRemaining AsStringerFunc = func() string {
-		return time.Since(st).String()
-	}
-
-	logger := t.Logger.
-		With(
-			zap.String("operation", "delete"),
-			zap.Duration("timeout", t.queryTimeout),
-		).
-		WithLazy(
-			zap.Stringer("query", query),
-			zap.Stringer("execution_time_to_now", timeRemaining),
-		)
-
-	return retryBeforeTimeout(logger, query, isLWT)
-}
-
-func retryBeforeTimeout[E Executable](logger *zap.Logger, query E, isLWT bool) error {
-	for {
-		var err error
-		if isLWT {
-			var applied bool
-			applied, err = query.ExecCAS()
-			if !applied {
-				logger.Debug("no rows affected")
-			}
-		} else {
-			err = query.Exec()
+	return retryWriteTimeouts(retryCtx, t.Logger, "delete", func() error {
+		if !isLWT {
+			return query.Exec()
 		}
-
-		if err == nil {
-			break
+		applied, errExec := query.ExecCAS()
+		if !applied {
+			t.Logger.Debug("no rows affected", zap.Stringer("query", query))
 		}
-
-		var wto *gocql.RequestErrWriteTimeout
-		if !errors.As(err, &wto) {
-			logger.Debug("failure not retryable", zap.Error(err))
-			return err
-		}
-
-		logger.Info("retrying before timeout",
-			zap.String("consistency", wto.Consistency.String()),
-			zap.Int("received", wto.Received),
-			zap.Int("blockFor", wto.BlockFor),
-			zap.String("writeType", wto.WriteType),
-		)
-	}
-
-	return nil
+		return errExec
+	})
 }

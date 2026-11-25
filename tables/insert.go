@@ -2,11 +2,8 @@ package tables
 
 import (
 	"context"
-	"errors"
 	"sync/atomic"
-	"time"
 
-	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v3/qb"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -117,40 +114,23 @@ func (t *tableManagerImpl[T]) insertInternal(ctx context.Context, instance *T, e
 	}
 	defer gate.exit()
 
-	st := time.Now()
 	retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
 	defer cancel()
 	q = q.WithContext(retryCtx)
 
-	for {
-		if isLWT {
-			applied, err = q.ExecCAS()
-			if !applied {
-				t.Logger.Debug("inserted no rows", zap.Stringer("query", q))
-			}
-		} else {
-			err = q.Exec()
+	err = retryWriteTimeouts(retryCtx, t.Logger, "insert", func() error {
+		if !isLWT {
+			return q.Exec()
 		}
-
-		if err == nil {
-			break
+		var errExec error
+		applied, errExec = q.ExecCAS()
+		if !applied {
+			t.Logger.Debug("inserted no rows", zap.Stringer("query", q))
 		}
-
-		var wto *gocql.RequestErrWriteTimeout
-		retryable := errors.As(err, &wto)
-		if !retryable {
-			t.Logger.Debug("failure not retryable", zap.Error(err))
-			return err
-		}
-
-		t.Logger.Debug("insert retrying from early write timeout",
-			zap.String("consistency", wto.Consistency.String()),
-			zap.Int("received", wto.Received),
-			zap.Int("blockFor", wto.BlockFor),
-			zap.String("writeType", wto.WriteType),
-			zap.Duration("set_timeout", t.queryTimeout),
-			zap.Duration("execution_time_to_now", time.Since(st)),
-		)
+		return errExec
+	})
+	if err != nil {
+		return err
 	}
 
 	if isLWT && !applied {

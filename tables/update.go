@@ -2,13 +2,9 @@ package tables
 
 import (
 	"context"
-	"errors"
 	"maps"
-	"time"
 
-	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v3/qb"
-	"go.uber.org/zap"
 )
 
 // Update updates an object. It will error if the object does not exist.
@@ -57,38 +53,23 @@ func (t *tableManagerImpl[T]) updateInternal(ctx context.Context, instance *T, o
 		stmt, params = query.ToCql()
 	}
 
-	st := time.Now()
 	retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
 	defer cancel()
 
 	var applied bool
-	for {
+	err = retryWriteTimeouts(retryCtx, t.Logger, "update", func() error {
 		query := t.Session.ContextQuery(retryCtx, stmt, params)
 		if len(opts) == 0 && t.codec != nil {
 			query = query.Bind(t.codec.BindColumns(instance, params)...)
 		} else {
 			query = query.BindStructMap(instance, additionalVals)
 		}
-		applied, err = query.ExecCASRelease()
-
-		if err == nil {
-			break
-		}
-
-		var wto *gocql.RequestErrWriteTimeout
-		retryable := errors.As(err, &wto)
-		if !retryable {
-			return err
-		}
-
-		t.Logger.Debug("update retrying from early write timeout",
-			zap.String("consistency", wto.Consistency.String()),
-			zap.Int("received", wto.Received),
-			zap.Int("blockFor", wto.BlockFor),
-			zap.String("writeType", wto.WriteType),
-			zap.Duration("set_timeout", t.queryTimeout),
-			zap.Duration("execution_time_to_now", time.Since(st)),
-		)
+		var errExec error
+		applied, errExec = query.ExecCASRelease()
+		return errExec
+	})
+	if err != nil {
+		return err
 	}
 
 	if !applied {

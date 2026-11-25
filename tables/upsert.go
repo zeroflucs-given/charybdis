@@ -2,12 +2,9 @@ package tables
 
 import (
 	"context"
-	"errors"
 	"maps"
 	"sync/atomic"
-	"time"
 
-	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v3"
 	"github.com/scylladb/gocqlx/v3/qb"
 	"go.uber.org/zap"
@@ -97,31 +94,12 @@ func (t *tableManagerImpl[T]) upsertInternal(ctx context.Context, instance *T, g
 	}
 	defer gate.exit()
 
-	st := time.Now()
 	retryCtx, cancel := context.WithTimeout(ctx, t.queryTimeout)
 	defer cancel()
 	query = query.WithContext(retryCtx)
 
-	for {
-		err := query.Exec()
-		if err == nil {
-			break
-		}
-
-		var wto *gocql.RequestErrWriteTimeout
-		retryable := errors.As(err, &wto)
-		if !retryable {
-			return err
-		}
-
-		t.Logger.Debug("upsert retrying from early write timeout",
-			zap.String("consistency", wto.Consistency.String()),
-			zap.Int("received", wto.Received),
-			zap.Int("blockFor", wto.BlockFor),
-			zap.String("writeType", wto.WriteType),
-			zap.Duration("set_timeout", t.queryTimeout),
-			zap.Duration("execution_time_to_now", time.Since(st)),
-		)
+	if err := retryWriteTimeouts(retryCtx, t.Logger, "upsert", query.Exec); err != nil {
+		return err
 	}
 
 	// Post-change hooks
